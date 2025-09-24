@@ -18,4 +18,4 @@ print(binIP)
 # Será impresso -> b'\xc0\xa8\x01\n'
 
 # converter pra inteiro
-intIP = int.from_bytes
+intIP = int.from_bytes(bytes, byteorder="big")
