@@ -4,7 +4,7 @@
 strIP   = '192.168.1.10'
 print(f'O Endereço IPv4 é...........................: {strIP}\n')
 
-intCIDR = 24
+intCIDR = 22
 print(f'Valor CIDR (bits na máscara)................: /{intCIDR}\n')
 
 intIP      = int.from_bytes(bytes([int(x) for x in strIP.split('.')]), 'big')

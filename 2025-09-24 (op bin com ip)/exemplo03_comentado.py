@@ -34,4 +34,4 @@ print(f'Endereço IPv4 da Rede em binário é (32 bits): {intIPRede:032b}\n')
 # dividindo em 4 partes (octetos) e unindo essas partes com pontos ('.'). 
 # A função 'to_bytes(4)' converte o inteiro de volta para uma sequência de 4 bytes.
 strIPRede = '.'.join([str(x) for x in intIPRede.to_bytes(4)])
-print(f'O Endereço IPv4 da Rede é...................: {strIPRede}\n')
+print(f'O Endereço IPv4 da Rede é...................: {strIPRede}\n')   
