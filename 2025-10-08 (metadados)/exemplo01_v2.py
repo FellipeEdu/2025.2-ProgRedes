@@ -9,6 +9,7 @@ DIR_APP    = os.path.dirname(__file__)
 DIR_IMG    = f'{DIR_APP}\\imagens'
 strNomeArq = f'{DIR_IMG}\\presepio_natalino.jpg'
 
+
 # ------------------------------------------------------------------------------------------
 try:
    fileInput = open(strNomeArq, 'rb')
@@ -34,7 +35,7 @@ else:
    endianHeader  = fileInput.read(2) # Endian do arquivo (Big ou Little)
    temp2         = fileInput.read(2) # TIFF Header (fixo)
    temp3         = fileInput.read(4) # TIFF Header (fixo)
-   countMetadata = fileInput.read(2) # Quantidade de Metadados
+   countMetadata = fileInput.read(2) # Metadata Count
 
    # Verificando o Endian do arquivo
    # (49 49: Little Endian - Intel / 4D 4D: Big Endian - Motorola)
@@ -44,7 +45,7 @@ else:
 
    # Montando o dicionário do header do  EXIF
    dictEXIF = { 'exifSize' : exifSize     , 'exifMarker': exifHeader, 
-                'temp1'    : temp1        , 'endianHeader': endianHeader, 
+                'temp1'    : temp1        , 'tiffHeader': endianHeader, 
                 'temp2'    : temp2        , 'temp3'     : temp3     ,
                 'metaCount': countMetadata }
 
@@ -52,15 +53,13 @@ else:
    lstMetadata   = list()
    lstMetaHeader = ['TAGNumber', 'DataFormat', 'NumberComponents', 'DataValue']
    for _ in range(countMetadata):
-      idTAGNumber      = fileInput.read(2) # Identificador do Metadado 
-      idDataFormat     = fileInput.read(2) # Formato do Metadado
-      numberComponents = fileInput.read(4) # Número de Componentes do Metadado
-      dataValue        = fileInput.read(4) # Valor do Metadado (ou Offset)
+      idTAGNumber      = int.from_bytes(fileInput.read(2), byteorder=strOrderByte) # Identificador do Metadado
+      idDataFormat     = int.from_bytes(fileInput.read(2), byteorder=strOrderByte) # Formato do Metadado
+      numberComponents = int.from_bytes(fileInput.read(4), byteorder=strOrderByte) # Número de Componentes do Metadado
+      dataValue        = int.from_bytes(fileInput.read(4), byteorder=strOrderByte) # Valor do Metadado (ou Offset)
 
       lstTemp = [idTAGNumber, idDataFormat, numberComponents, dataValue]
       lstMetadata.append(dict(zip(lstMetaHeader, lstTemp)))
-
-   print(lstMetadata)
 
    # Fechando o arquivo
    fileInput.close()
@@ -76,3 +75,22 @@ else:
       print(f'{metaData}')
 
    print('\n\n')
+
+   '''
+   * VERSÃO 3 *
+Metadados Lidos
+------------------------------
+{'TAGNumber': 'ImageWidth', 'DataFormat': 'Unsigned Long', 'NumberComponents': 1, 'DataValue': 4080}
+{'TAGNumber': 'ImageLength', 'DataFormat': 'Unsigned Long', 'NumberComponents': 1, 'DataValue': 3072}
+{'TAGNumber': 'Make', 'DataFormat': 'ASCII String', 'NumberComponents': 7, 'DataValue': 170}
+{'TAGNumber': 'YResolution', 'DataFormat': 'ASCII String', 'NumberComponents': 9, 'DataValue': 177}
+{'TAGNumber': 'Orientation', 'DataFormat': 'Unsigned Short', 'NumberComponents': 1, 'DataValue': 1}
+{'TAGNumber': 'XResolution', 'DataFormat': 'Unsigned Rational', 'NumberComponents': 1, 'DataValue': 186}
+{'TAGNumber': 'Unknown Tag', 'DataFormat': 'Unsigned Rational', 'NumberComponents': 1, 'DataValue': 194}
+{'TAGNumber': 'ResolutionUnit', 'DataFormat': 'Unsigned Short', 'NumberComponents': 1, 'DataValue': 2}
+{'TAGNumber': 'Software', 'DataFormat': 'ASCII String', 'NumberComponents': 22, 'DataValue': 202}
+{'TAGNumber': 'DateTime', 'DataFormat': 'ASCII String', 'NumberComponents': 20, 'DataValue': 224}
+{'TAGNumber': 'YCbCrPositioning', 'DataFormat': 'Unsigned Short', 'NumberComponents': 1, 'DataValue': 1}
+{'TAGNumber': 'ExifOffset', 'DataFormat': 'Unsigned Long', 'NumberComponents': 1, 'DataValue': 244}
+{'TAGNumber': 'GPSInfo', 'DataFormat': 'Unsigned Long', 'NumberComponents': 1, 'DataValue': 939}
+   '''
