@@ -41,6 +41,7 @@ else:
    strOrderByte  = 'little' if endianHeader == b'\x49\x49' else 'big'
    exifSize      = int.from_bytes(exifSize, byteorder=strOrderByte)
    countMetadata = int.from_bytes(countMetadata, byteorder=strOrderByte)
+   endianHeader = endianHeader.hex()
 
    # Montando o dicionário do header do  EXIF
    dictEXIF = { 'exifSize' : exifSize     , 'exifMarker': exifHeader, 
