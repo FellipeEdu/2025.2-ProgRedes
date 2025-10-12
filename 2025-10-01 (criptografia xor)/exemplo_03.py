@@ -30,5 +30,5 @@ while intPosicao < len(strTexto_1):
 print(f'Texto_1 & Texto_2......: {strResultadoAND} -> {len(strResultadoAND)} caracteres')
 print(f'Texto_1 | Texto_2......: {strResultadoOR} -> {len(strResultadoOR)} caracteres')
 print(f'Texto_1 ^ Texto_2......: {strResultadoXOR} -> {len(strResultadoXOR)} caracteres')
-'''lendo caracteres "invisiveis":'''
+#lendo caracteres "invisiveis":
 print(f'Texto_1 ^ Texto_2......: {strResultadoXOR.encode("utf-8").hex('\\')} -> {len(strResultadoXOR)} caracteres')
