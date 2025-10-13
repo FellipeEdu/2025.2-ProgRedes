@@ -54,14 +54,25 @@ else:
    lstMetaHeader = ['TAGNumber', 'DataFormat', 'NumberComponents', 'DataValue']
    for _ in range(countMetadata):
       idTAGNumber      = int.from_bytes(fileInput.read(2), byteorder=strOrderByte) # Identificador do Metadado
-      idTAGNumber      = f'0x{idTAGNumber:04x}'
+      try: 
+         idTAGNumber_str = TAG_NUMBER[idTAGNumber]
+      except KeyError:
+         if idTAGNumber in GPS_TAG_NUMBER:
+            idTAGNumber_str = GPS_TAG_NUMBER[idTAGNumber]
+         else:
+            idTAGNumber_str = 'undefined'
+
       idDataFormat     = int.from_bytes(fileInput.read(2), byteorder=strOrderByte) # Formato do Metadado
-      idDataFormat     = f'0x{idDataFormat:04x}'
+      try: 
+         idDataFormat_str = DATA_FORMAT[idDataFormat]
+      except KeyError: 
+         idDataFormat_str = 'undefined'
+
       numberComponents = int.from_bytes(fileInput.read(4), byteorder=strOrderByte) # Número de Componentes do Metadado
-      numberComponents = f'0x{numberComponents:04x}'
       dataValue        = int.from_bytes(fileInput.read(4), byteorder=strOrderByte) # Valor do Metadado (ou Offset)
 
-      lstTemp = [idTAGNumber, idDataFormat, numberComponents, dataValue]
+      #lstTemp = [idTAGNumber, idDataFormat, numberComponents, dataValue]
+      lstTemp = [idTAGNumber_str, idDataFormat_str, numberComponents, dataValue]
       lstMetadata.append(dict(zip(lstMetaHeader, lstTemp))) 
 
    # Fechando o arquivo
@@ -76,9 +87,9 @@ else:
    print('\n\nMetadados Lidos\n' + '-'*30)
    for metaData in lstMetadata:
       print(f'{metaData}')
+      #print(f'{[TAG_NUMBER[metaData['TAGNumber']]]}')
 
-   print('\n\n')
-
+   print('\n')
    '''
    * VERSÃO 3 *
 Metadados Lidos
