@@ -53,10 +53,11 @@ else:
    lstMetadata   = list()
    lstMetaHeader = ['TAGNumber', 'DataFormat', 'NumberComponents', 'DataValue']
    for _ in range(countMetadata):
-      idTAGNumber      = fileInput.read(2) # Identificador do Metadado 
-      idDataFormat     = fileInput.read(2) # Formato do Metadado
-      numberComponents = fileInput.read(4) # Número de Componentes do Metadado
-      dataValue        = fileInput.read(4) # Valor do Metadado (ou Offset)
+      # adição .hex(' ', 1) pra separar acada 1 byte com espaço
+      idTAGNumber      = fileInput.read(2).hex(' ', 1) # Identificador do Metadado 
+      idDataFormat     = fileInput.read(2).hex(' ', 1) # Formato do Metadado
+      numberComponents = fileInput.read(4).hex(' ', 1) # Número de Componentes do Metadado
+      dataValue        = fileInput.read(4).hex(' ', 1) # Valor do Metadado (ou Offset)
 
       lstTemp = [idTAGNumber, idDataFormat, numberComponents, dataValue]
       lstMetadata.append(dict(zip(lstMetaHeader, lstTemp)))
