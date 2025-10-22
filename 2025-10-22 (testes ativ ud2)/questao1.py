@@ -27,7 +27,4 @@ inicio = time()
 for texto in lstEntrada:
     nonceEncontrado, tempoDecorrido = findNonce(texto[0], texto[1])
     print(f'NONCE: {nonceEncontrado} TEMPO: {tempoDecorrido:.4f} s')
-
-# tempoDecorrido = time() - inicio
-
-#print(f'NONCE: {nonce} TEMPO: {tempoDecorrido:.4f} s')
+# COMPARAR FUNCOES COM DIGEST E HEXDIGEST
