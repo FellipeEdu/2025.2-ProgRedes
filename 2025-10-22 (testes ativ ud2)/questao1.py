@@ -10,9 +10,9 @@ def findNonce(dataToHash: bytes, bitsZero: int):
 
         if intHash < target:
             tempoDec = time() - inicio
-            print(f'HASH: {hashDigest}')
-            print(f'NONCE: {nonce} TEMPO: {tempoDec:.4f} s')
-            break   
+            #print(f'HASH: {hashDigest}')
+            #print(f'NONCE: {nonce} TEMPO: {tempoDec:.4f} s')
+            return nonce, tempoDec   
         nonce += 1
 
 #strBinTestes = 'É possivel calcular essa?'.encode()
@@ -25,21 +25,8 @@ inicio = time()
 
 #while True:
 for texto in lstEntrada:
-    while True:
-        bytesInput = nonce.to_bytes(4, 'big') + texto[0].encode()
-
-        #hashResultado = hashlib.sha256(bytesInput).hexdigest()
-        #if hashResultado.startswith('0' * ((intDificuldade // 4) + (intDificuldade % 4))): break
-        target = 1 << (256 - texto[1])
-        hashDigest = hashlib.sha256(bytesInput).digest()
-        intHash = int.from_bytes(hashDigest, 'big')
-
-        if intHash < target:
-            tempoDec = time() - inicio
-            print(f'HASH: {hashDigest}')
-            print(f'NONCE: {nonce} TEMPO: {tempoDec:.4f} s')
-            break   
-        nonce += 1
+    nonceEncontrado, tempoDecorrido = findNonce(texto[0], texto[1])
+    print(f'NONCE: {nonceEncontrado} TEMPO: {tempoDecorrido:.4f} s')
 
 # tempoDecorrido = time() - inicio
 
