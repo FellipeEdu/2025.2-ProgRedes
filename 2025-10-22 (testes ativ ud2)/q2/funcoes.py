@@ -1,5 +1,7 @@
 import os
 
+dirQuestao = os.path.dirname(__file__)
+
 RAID_CONFIG = {
     'quantDiscos': 0,        # N total de discos (Dados + Paridade)
     'tamanhoDiscos': 0,      # Tamanho em bytes de CADA arquivo .bin
@@ -36,10 +38,6 @@ def calcularXorBytes(listaBlocos):
     return bytes(paridade)
 
 def posicaoLogica(posicaoByte, tamBloco, quantDados):
-    """
-    Calcula a localização física (disco e posição absoluta no arquivo)
-    a partir da posição lógica (do RAID).
-    """
     numBloco = posicaoByte // tamBloco
     discoDadosX = numBloco % quantDados
     bloco_no_disco = numBloco // quantDados
@@ -49,7 +47,7 @@ def posicaoLogica(posicaoByte, tamBloco, quantDados):
     return discoDadosX, posFisica
 
 def inicializaRAID():
-    print("\n--- 1. INICIALIZAR RAID ---")
+    print("\n------ 1. INICIALIZAR RAID ------")
     
     try:
         quantDiscos = int(input('Quantidade de discos (N > 1): '))
@@ -68,6 +66,7 @@ def inicializaRAID():
              return
              
         diretorio = input('Informe o diretório onde os arquivos serão criados: ')
+        diretorio = f'{dirQuestao}\\{diretorio}'
 
     except ValueError:
         print("Entrada inválida. Tente novamente.")
@@ -86,6 +85,7 @@ def inicializaRAID():
     blocoVazio = b'\x00' * tamanhoBlocos
     numBlocos = tamanhoDiscos // tamanhoBlocos
     
+    print()
     for disco in range(quantDiscos):
         caminhoArquivo = os.path.join(diretorio, f'disco{disco}.bin')
         
@@ -107,20 +107,21 @@ def inicializaRAID():
     print("\nInicialização RAID concluída!")
 
 def obtemRAID():
-    print("\n--- 2. OBTER RAID EXISTENTE ---")
+    print("\n------ 2. OBTER RAID EXISTENTE ------")
     
     try:
         quantDiscos = int(input('Quantidade de discos: '))
         tamanhoDiscos = int(input('Tamanho dos discos (bytes): '))
         tamanhoBlocos = int(input('Tamanho dos blocos (bytes): '))
         diretorio = input('Diretório: ')
+        diretorio = f'{dirQuestao}\\{diretorio}'
         
         # Verificações de existência
         configValida = True
         for disco in range(quantDiscos):
              caminho = os.path.join(diretorio, f'disco{disco}.bin')
              if not os.path.exists(caminho) or os.path.getsize(caminho) != tamanhoDiscos:
-                 print(f"Erro: Arquivo {caminho} não encontrado ou tamanho incorreto.")
+                 print(f"ERRO: Arquivo {caminho} não encontrado ou tamanho incorreto.")
                  configValida = False
                  break
         
@@ -132,7 +133,7 @@ def obtemRAID():
             RAID_CONFIG['diretorio'] = diretorio
             RAID_CONFIG['indiceParidade'] = quantDiscos - 1
             RAID_CONFIG['quantDiscosDados'] = quantDiscos - 1
-            print("Configuração RAID carregada com sucesso.")
+            print("\nConfiguração RAID carregada com sucesso.")
         else:
              RAID_CONFIG['quantDiscos'] = 0 # Invalida
              
@@ -162,9 +163,9 @@ def escreverBloco(discoX, blocoDisco, dados, config):
 
     # usando 'rb+' pois 'ab+' precisaria de seek e truncate
     # O modo 'rb+' garante a posição de escrita.
-    with open(caminho, 'rb+') as f: 
-        f.seek(posFisica)
-        f.write(dados)
+    with open(caminho, 'rb+') as arquivo: 
+        arquivo.seek(posFisica)
+        arquivo.write(dados)
 
 def escreveRAID():
     config = getConfig()
@@ -172,12 +173,12 @@ def escreveRAID():
         print("ERRO: RAID não inicializado ou carregado.")
         return
         
-    print("\n--- 3. ESCREVER DADOS ---")
+    print("\n------ 3. ESCREVER DADOS ------")
     
     # conversão string para bytes
     dados_a_gravar = input("Dados a gravar: ").encode('utf-8')
-    # completa os dados com tamanho fixo de 100 bytes
-    while len(dados_a_gravar) < 100:
+    # completa os dados com tamanho do bloco do disco
+    while len(dados_a_gravar) < config['tamanhoBlocos']:
         dados_a_gravar += b'0'
     # testando tamanho fixo
     #print(len(dados_a_gravar))
@@ -231,7 +232,7 @@ def leRAID():
         print("ERRO: RAID não inicializado ou carregado.")
         return
         
-    print("\n--- 4. LER DADOS ---")  
+    print("\n------ 4. LER DADOS ------")  
     try:
         posicaoInicioLogica = int(input("Posição de início (em bytes): "))
         quantBytes = int(input("Quantidade de bytes a ler: "))
@@ -243,38 +244,34 @@ def leRAID():
     quantDados = config['quantDiscosDados']
     bytesLidos = b''
     
-    # Lógica de iteração de leitura bloco por bloco
     while len(bytesLidos) < quantBytes:
         
         posicaoAtualLogica = posicaoInicioLogica + len(bytesLidos)
         
-        # Cálculo da posição física do *bloco inteiro* que contém a leitura
         discoDadosX, posFisicaB = posicaoLogica(
             posicaoAtualLogica, tamBloco, quantDados
         )
         blocoDisco = posFisicaB // tamBloco
         
-        # Lógica de LEITURA COM RECUPERAÇÃO
         caminhoDisco = os.path.join(config['diretorio'], f'disco{discoDadosX}.bin')
         
         if os.path.exists(caminhoDisco):
-            # Caso OK: Disco está OK, lê o bloco
             blocoDados = lerBloco(discoDadosX, blocoDisco, config)
         else:
-            # Caso de FALHA: Reconstruir usando XOR dos outros
+            # reconstruindo usando XOR dos outros
             print(f"RECUPERAÇÃO: Disco{discoDadosX}.bin falhou! Reconstruindo dados...")
             
             blocosXOR = []
             
-            # Adicionar TODOS os blocos restantes (Dados e Paridade)
+            # adiciona blocos restantes
             for i in range(config['quantDiscos']):
                 if i != discoDadosX:
                     blocosXOR.append(lerBloco(i, blocoDisco, config))
             
-            # O XOR de todos os blocos restantes (incluindo P) resulta no bloco que faltava.
+            # XOR que resulta no bloco que faltava
             blocoDados = calcularXorBytes(blocosXOR)
         
-        # Ajusta o pedaço a ser lido do bloco (offset e tamanho)
+        # ajusta o pedaço a ser lido do bloco (offset e tamanho)
         offsetInicial = posicaoAtualLogica % tamBloco
         bytesRestantesBloco = tamBloco - offsetInicial
         leituraBloco = min(quantBytes - len(bytesLidos), bytesRestantesBloco)
@@ -294,7 +291,7 @@ def removeDiscoRAID():
         print("ERRO: RAID não inicializado ou carregado.")
         return
         
-    print("\n--- 5. REMOVER DISCO ---")
+    print("\n------ 5. REMOVER DISCO ------")
     
     try:
         disco_a_remover = int(input(f"Índice do disco a remover (0 a {config['quantDiscos'] - 1}): "))
@@ -318,7 +315,7 @@ def constroiDiscoRAID():
         print("ERRO: RAID não inicializado ou carregado.")
         return
         
-    print("\n--- 6. RECONSTRUIR DISCO ---")
+    print("\n------ 6. RECONSTRUIR DISCO ------")
     
     try:
         disco_a_construir = int(input(f"Índice do disco a reconstruir (0 a {config['quantDiscos'] - 1}): "))
@@ -330,35 +327,29 @@ def constroiDiscoRAID():
          
     caminhoArq = os.path.join(config['diretorio'], f'disco{disco_a_construir}.bin')
     
-    #verificando se o disco realmente precisa ser reconstruído
+    # verificando se o disco realmente precisa ser reconstruído
     if os.path.exists(caminhoArq):
          print(f"Disco{disco_a_construir}.bin já existe. Não é necessário reconstruir.")
          return
          
     print(f"Iniciando reconstrução do disco{disco_a_construir}.bin...")
     
-    # Cria o novo arquivo vazio
-    # Uso de 'wb' para criar e garantir o tamanho correto.
-    #with open(caminhoArq, 'wb') as arquivo:
-    #     pass
-         
+    with open(caminhoArq, 'wb') as arquivo: # cria e garante que tá vazio pranao conflitar com a restriçao de escreveBlocos()
+        pass
+
     tamanhoBloco = config['tamanhoBlocos']
     num_blocos_total = config['tamanhoDiscos'] // tamanhoBloco
     
-    # Itera sobre todos os blocos
     for bloco_no_disco in range(num_blocos_total):
         
         blocos_para_xor = []
         
-        # Lê o bloco correspondente de TODOS os outros discos (Dados + Paridade)
         for i in range(config['quantDiscos']):
             if i != disco_a_construir:
                 blocos_para_xor.append(lerBloco(i, bloco_no_disco, config))
                 
-        # O XOR de todos os blocos restantes gera o bloco perdido
         bloco_reconstruido = calcularXorBytes(blocos_para_xor)
         
-        # Escreve o bloco reconstruído no novo disco
         escreverBloco(disco_a_construir, bloco_no_disco, bloco_reconstruido, config)
         
     print(f"Reconstrução do disco{disco_a_construir}.bin concluída com sucesso!")
