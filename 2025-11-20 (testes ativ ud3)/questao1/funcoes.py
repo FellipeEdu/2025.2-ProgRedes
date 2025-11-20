@@ -2,7 +2,7 @@ import sys, os, requests, json
 
 dirQuestao = os.path.dirname(__file__)
 
-def criarArquivos(diretorio):
+def criarArquivoDir(diretorio):
     #Cria um diretório no caminho especificado se ele ainda não existir.
     try:
         if not os.path.exists(diretorio):
@@ -40,124 +40,121 @@ def nomeArqHost(url):
     # retorna o nome limpo
     return nome_Original_Arq
 
-def trocaCharNome(nome):
-    caracteresInvalidos = ['%', '#', '?', '&', '=', '+', ':', ';', '$', '@', '[', ']', '(', ')', '{', '}', '!', '`', '~', '^', '*', '"', "'"]
+def limpaNomeArq(nome):
+    caracteres_Invalidos = ['%', '#', '?', '&', '=', '+', ':', ';', '$', '@', '[', ']', '(', ')', '{', '}', '!', '`', '~', '^', '*', '"', "'"]
     
-    nomeNovo = nome
-    for char in caracteresInvalidos:
-        nomeNovo = nomeNovo.replace(char, '_')
+    nome_Novo = nome
+    for char in caracteres_Invalidos:
+        nome_Novo = nome_Novo.replace(char, '_')
         
-    return nomeNovo
+    return nome_Novo
 
 # --- Funções de Download e Salvamento ---
 
-def baixar_e_salvar_header(url):
-    """
-    Faz a requisição, baixa o HEADER e salva em formato JSON na pasta 'headers'.
-    """
+def salvarHeader(url):
+    # Faz a requisição, baixa o HEADER e salva em formato JSON na pasta 'headers'.
+    
     DIRETORIO_HEADERS = "headers"
     
     try:
-        # 1. Cria a pasta 'headers'
-        criarArquivos(DIRETORIO_HEADERS)
+        # cria a pasta 'headers'
+        criarArquivoDir(DIRETORIO_HEADERS)
         
-        # 2. Faz a requisição
-        response = requests.get(url, allow_redirects=True, timeout=10)
-        response.raise_for_status() # Lança exceção para códigos de status 4xx/5xx
+        # faz a requisição
+        #response = requests.get(url, allow_redirects=True, timeout=10)
 
-        # 3. Formata o nome do arquivo
-        nome_base = nomeArqHost(url)
-        # O nome do arquivo header não deve conter caracteres especiais além do '-' gerado
-        nome_arquivo = f"{trocaCharNome(nome_base)}.json" 
-        caminho_completo = os.path.join(DIRETORIO_HEADERS, nome_arquivo)
+        response = requests.get(url)
+        response.raise_for_status()
+
+        # formata o nome do arquivo
+        nome_Base = nomeArqHost(url)
+        nome_Arquivo = f"{limpaNomeArq(nome_Base)}.json" 
+        caminho_Completo = os.path.join(DIRETORIO_HEADERS, nome_Arquivo)
         
-        # 4. Converte o header para JSON e salva
-        header_json = json.dumps(dict(response.headers), indent=4)
+        # converte o header para JSON e salva
+        header = json.dumps(dict(response.headers), indent=4)
         
-        with open(caminho_completo, 'w', encoding='utf-8') as f:
-            f.write(header_json)
+        with open(caminho_Completo, 'w', encoding='utf-8') as arquivo:
+            arquivo.write(header)
         
-        print(f"Header salvo com sucesso em: {caminho_completo}")
-        return response # Retorna a resposta para uso no salvamento do conteúdo
+        print(f"Header salvo com sucesso em: {caminho_Completo}")
+        return response
     
-    except requests.exceptions.HTTPError as e:
-        print(f"Erro HTTP ao baixar o header para {url}: {e}")
-    except requests.exceptions.RequestException as e:
-        print(f"Erro de requisição (conexão/timeout) para {url}: {e}")
-    except Exception as e:
-        print(f"Erro inesperado ao processar o header: {e}")
+    except requests.exceptions.HTTPError as erro:
+        print(f"Erro HTTP ao baixar o header para {url}: {erro}")
+    except requests.exceptions.RequestException as erro:
+        print(f"Erro de requisição (conexão/timeout) para {url}: {erro}")
+    except Exception as erro:
+        print(f"Erro inesperado ao processar o header: {erro}")
         
     return None
 
-def salvar_conteudo(response, url):
-    """
-    Salva o conteúdo da resposta baseado no Content-Type do header.
-    """
-    if response is None:
-        return
-        
-    content_type = response.headers.get('Content-Type', 'application/octet-stream').lower()
+def salvarConteudo(response, url):
+    #Salva o conteúdo da resposta baseado no Content-Type do header.
     
-    if 'text/html' in content_type:
+    if response is None: return
+        
+    content_Type = response.headers.get('Content-Type', 'application/octet-stream').lower()
+    
+    if 'text/html' in content_Type:
         tipo = 'html'
         extensao = '.html'
         diretorio = 'content_html'
         
         # Nome do arquivo: base no host
-        nome_base = nomeArqHost(url)
-        nome_arquivo = nome_base + extensao
+        nome_Base = nomeArqHost(url)
+        nome_Arq = nome_Base + extensao
 
-    elif 'image/jpeg' in content_type:
+    elif 'image/jpeg' in content_Type:
         tipo = 'jpeg'
         extensao = '.jpg'
         diretorio = 'content_jpg'
         
-        # Nome do arquivo: última parte da URL (simulação de urlparse.path.split)
-        # 1. Remove o host para pegar o caminho
+        # remove o host para pegar o caminho
         caminho_url = url.split(nomeArqHost(url).replace('-', '.'))[1]
         
-        # 2. Pega a última parte do caminho
+        # pega a última parte do caminho
         partes = caminho_url.split('/')
-        nome_base_bruto = partes[-1] if partes[-1] else "image"
+        nome_Base_Completo = partes[-1] if partes[-1] else "image"
         
-        # Se a URL não termina em .jpg, garante a extensão
-        if not nome_base_bruto.lower().endswith(extensao):
-             nome_base_bruto += extensao
+        # garante a extensão se a URL não termina em .jpg
+        if not nome_Base_Completo.lower().endswith(extensao):
+             nome_Base_Completo += extensao
              
-        nome_arquivo = nome_base_bruto
+        nome_Arq = nome_Base_Completo
 
     else:
-        # Padrão para outros tipos de arquivo
+        # para outros tipos de arquivo
         tipo = 'outro'
         # Tenta inferir extensão
-        if '/' in content_type:
-            extensao = f".{content_type.split('/')[-1].split(';')[0]}"
+        if '/' in content_Type:
+            extensao = f".{content_Type.split('/')[-1].split(';')[0]}"
         else:
             extensao = ".bin"
             
         diretorio = 'content_outros'
 
         # Nome do arquivo: base no host + extensão
-        nome_base = nomeArqHost(url)
-        nome_arquivo = nome_base + extensao
+        nome_Base = nomeArqHost(url)
+        nome_Arq = nome_Base + extensao
         
-        print(f"Conteúdo de tipo não mapeado ({content_type}) salvo como {tipo}.")
+        print(f"Conteúdo de tipo não mapeado ({content_Type}) salvo como {tipo}.")
 
     try:
-        # 1. Limpa o nome do arquivo de caracteres especiais
-        nome_arquivo_limpo = trocaCharNome(nome_arquivo)
+        # limpando nome do arquivo
+        nome_Arq_Limpo = limpaNomeArq(nome_Arq)
         
-        # 2. Cria o diretório de conteúdo
-        criarArquivos(diretorio)
+        # cria diretório de conteúdo
+        criarArquivoDir(diretorio)
         
-        # 3. Define o caminho completo
-        caminho_completo = os.path.join(diretorio, nome_arquivo_limpo)
+        # define o caminho completo
+        caminho_Completo = os.path.join(diretorio, nome_Arq_Limpo)
         
-        # 4. Salva o conteúdo em modo binário
-        with open(caminho_completo, 'wb') as f:
+        # salva o conteúdo em modo binário
+        with open(caminho_Completo, 'wb') as f:
             f.write(response.content)
             
-        print(f"Conteúdo ({tipo}) salvo com sucesso em: {caminho_completo}")
+        print(f"Conteúdo ({tipo}) salvo com sucesso em: {caminho_Completo}")
 
-    except Exception as e:
-        print(f"Erro ao salvar o conteúdo: {e}")
+    except Exception as erro:
+        print(f"Erro ao salvar o conteúdo: {erro}")
