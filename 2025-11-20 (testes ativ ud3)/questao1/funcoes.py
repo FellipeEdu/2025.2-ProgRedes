@@ -1,4 +1,4 @@
-import sys, os, requests, json
+import os, requests, json
 
 dirQuestao = os.path.dirname(__file__)
 
@@ -60,9 +60,6 @@ def salvarHeader(url):
     try:
         # cria a pasta 'headers'
         criarArquivoDir(DIRETORIO_HEADERS)
-        
-        # faz a requisição
-        #response = requests.get(url, allow_redirects=True, timeout=10)
 
         response = requests.get(url)
         response.raise_for_status()
@@ -78,7 +75,7 @@ def salvarHeader(url):
         with open(caminho_Completo, 'w', encoding='utf-8') as arquivo:
             arquivo.write(header)
         
-        print(f"\n{response.headers}\n")
+        print(f"\nConteúdo do Cabeçalho:\n{response.headers}\n")
 
         print(f"Header salvo com sucesso em: {caminho_Completo}")
         return response
@@ -129,7 +126,7 @@ def salvarConteudo(response, url):
     else:
         # para outros tipos de arquivo
         tipo = 'outro'
-        # Tenta inferir extensão
+        # tenta adivinhar a extensão
         if '/' in content_Type:
             extensao = f".{content_Type.split('/')[-1].split(';')[0]}"
         else:
@@ -157,7 +154,7 @@ def salvarConteudo(response, url):
         with open(caminho_Completo, 'wb') as f:
             f.write(response.content)
             
-        print(f"Conteúdo ({tipo}) salvo com sucesso em: {caminho_Completo}")
+        print(f"\nConteúdo ({tipo}) salvo com sucesso em: {caminho_Completo}")
 
     except Exception as erro:
         print(f"Erro ao salvar o conteúdo: {erro}")

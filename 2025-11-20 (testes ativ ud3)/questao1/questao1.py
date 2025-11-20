@@ -1,13 +1,11 @@
-import sys; from funcoes import *  
+from funcoes import *  
 
-print("--- Download de Arquivos de Rede (Python/requests) ---")
+print("----- Download de Arquivos de Rede -----")
     
 while True:
     url = input("\nPor favor, informe a URL para download (ou 'sair' para encerrar): ").strip()
         
-    if url.lower() == 'sair':
-        print("Encerrando o programa. Até mais!")
-        break
+    if url.lower() == 'sair': break
             
     if not url:
         print("A URL não pode estar vazia.")
@@ -17,7 +15,7 @@ while True:
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
             
-    print(f"{'*' * 30}\nIniciando processamento da URL: {url}")
+    print(f"{'*' * 50}\nIniciando processamento da URL: {url}")
         
     # baixa e salva HEADER
     # A função já trata as exceções de requisição e retorna o objeto 'response'
@@ -27,13 +25,6 @@ while True:
     if response is not None:
         salvarConteudo(response, url)
         
-    print("\nProcessamento da URL concluído.")
+    print(f"\nProcessamento da URL concluído.\n{'*' * 50}")
 
-    '''try:
-
-    except requests.exceptions.ConnectTimeout:
-        sys.exit(f'\nERRO: A conexão demorou demais (Timeout). O servidor pode estar offline ou lento...\n')
-    except requests.exceptions.RequestException as erro:
-        sys.exit(f'\nERRO: Ocorreu um erro ao fazer a requisição: {erro}\n')
-    except Exception as erro:
-        sys.exit(f'\nERRO: {erro}\n')'''
+print("Encerrando o programa.")
