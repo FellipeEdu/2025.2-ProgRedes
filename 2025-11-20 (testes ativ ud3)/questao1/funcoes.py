@@ -3,15 +3,16 @@ import sys, os, requests, json
 dirQuestao = os.path.dirname(__file__)
 
 def criarArquivoDir(diretorio):
-    #Cria um diretório no caminho especificado se ele ainda não existir.
+    caminho_Absoluto = os.path.join(dirQuestao, diretorio)
+
     try:
         if not os.path.exists(diretorio):
-            os.makedirs(diretorio)
-            print(f"Diretório criado: {diretorio}")
+            os.makedirs(caminho_Absoluto, exist_ok=True)
+            print(f"\nDiretório criado: {diretorio}")
         else:
-            print(f"Diretório já existe: {diretorio}")
+            print(f"\nDiretório já existe: {diretorio}")
     except OSError as erro:
-        print(f"Erro ao criar o diretório {diretorio}: {erro}")
+        print(f"\nErro ao criar o diretório {diretorio}: {erro}")
         raise
 
 def nomeArqHost(url):
@@ -69,7 +70,7 @@ def salvarHeader(url):
         # formata o nome do arquivo
         nome_Base = nomeArqHost(url)
         nome_Arquivo = f"{limpaNomeArq(nome_Base)}.json" 
-        caminho_Completo = os.path.join(DIRETORIO_HEADERS, nome_Arquivo)
+        caminho_Completo = os.path.join(dirQuestao, DIRETORIO_HEADERS, nome_Arquivo)
         
         # converte o header para JSON e salva
         header = json.dumps(dict(response.headers), indent=4)
@@ -77,15 +78,17 @@ def salvarHeader(url):
         with open(caminho_Completo, 'w', encoding='utf-8') as arquivo:
             arquivo.write(header)
         
+        print(f"\n{response.headers}\n")
+
         print(f"Header salvo com sucesso em: {caminho_Completo}")
         return response
     
     except requests.exceptions.HTTPError as erro:
-        print(f"Erro HTTP ao baixar o header para {url}: {erro}")
+        print(f"\nErro HTTP ao baixar o header para {url}: {erro}")
     except requests.exceptions.RequestException as erro:
-        print(f"Erro de requisição (conexão/timeout) para {url}: {erro}")
+        print(f"\nErro de requisição (conexão/timeout) para {url}: {erro}")
     except Exception as erro:
-        print(f"Erro inesperado ao processar o header: {erro}")
+        print(f"\nErro inesperado ao processar o header: {erro}")
         
     return None
 
@@ -94,7 +97,7 @@ def salvarConteudo(response, url):
     
     if response is None: return
         
-    content_Type = response.headers.get('Content-Type', 'application/octet-stream').lower()
+    content_Type = response.headers.get('Content-Type', '').lower()
     
     if 'text/html' in content_Type:
         tipo = 'html'
@@ -148,7 +151,7 @@ def salvarConteudo(response, url):
         criarArquivoDir(diretorio)
         
         # define o caminho completo
-        caminho_Completo = os.path.join(diretorio, nome_Arq_Limpo)
+        caminho_Completo = os.path.join(dirQuestao, diretorio, nome_Arq_Limpo)
         
         # salva o conteúdo em modo binário
         with open(caminho_Completo, 'wb') as f:
