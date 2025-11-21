@@ -17,11 +17,10 @@ while True:
             
     print(f"{'*' * 50}\nIniciando processamento da URL: {url}")
         
-    # baixa e salva HEADER
-    # A função já trata as exceções de requisição e retorna o objeto 'response'
+    # baixa e salva header
     response = salvarHeader(url)
 
-    # 2. Salvar o CONTEÚDO se a requisição do header foi bem-sucedida
+    # salvando conteudo
     if response is not None:
         salvarConteudo(response, url)
         
