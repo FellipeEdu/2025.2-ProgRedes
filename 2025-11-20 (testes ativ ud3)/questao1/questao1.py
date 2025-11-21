@@ -11,7 +11,6 @@ while True:
         print("A URL não pode estar vazia.")
         continue
             
-    # Garante que a URL comece com http(s):// para o requests
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
             
