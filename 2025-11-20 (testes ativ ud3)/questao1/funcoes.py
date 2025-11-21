@@ -16,10 +16,7 @@ def criarArquivoDir(diretorio):
         raise
 
 def nomeArqHost(url):
-    # Extrai o host da URL e o formata para ser o nome base do arquivo,
-    # substituindo pontos por hífens.
 
-    # remove o prefixo https
     if url.startswith('https://'):
         host_Original = url[8:]
     elif url.startswith('http://'):
@@ -27,18 +24,14 @@ def nomeArqHost(url):
     else:
         host_Original = url
     
-    # pega apenas a parte antes do primeiro '/'
     if '/' in host_Original:
         host_Original = host_Original.split('/')[0]
         
-    # remove porta se existir
     if ':' in host_Original:
         host_Original = host_Original.split(':')[0]
         
-    # substitui os pontos por hifens para formar o nome base do arquivo
     nome_Original_Arq = host_Original.replace('.', '-')
     
-    # retorna o nome limpo
     return nome_Original_Arq
 
 def limpaNomeArq(nome):
@@ -50,10 +43,8 @@ def limpaNomeArq(nome):
         
     return nome_Novo
 
-# --- Funções de Download e Salvamento ---
 
 def salvarHeader(url):
-    # Faz a requisição, baixa o HEADER e salva em formato JSON na pasta 'headers'.
     
     DIRETORIO_HEADERS = "headers"
     
@@ -90,7 +81,6 @@ def salvarHeader(url):
     return None
 
 def salvarConteudo(response, url):
-    #Salva o conteúdo da resposta baseado no Content-Type do header.
     
     if response is None: return
         
@@ -124,9 +114,9 @@ def salvarConteudo(response, url):
         nome_Arq = nome_Base_Completo
 
     else:
-        # para outros tipos de arquivo
+        # para outros tipos de arquivo tenta adivinhar a extensão
         tipo = 'outro'
-        # tenta adivinhar a extensão
+
         if '/' in content_Type:
             extensao = f".{content_Type.split('/')[-1].split(';')[0]}"
         else:
@@ -134,23 +124,18 @@ def salvarConteudo(response, url):
             
         diretorio = 'content_outros'
 
-        # Nome do arquivo: base no host + extensão
         nome_Base = nomeArqHost(url)
         nome_Arq = nome_Base + extensao
         
         print(f"Conteúdo de tipo não mapeado ({content_Type}) salvo como {tipo}.")
 
     try:
-        # limpando nome do arquivo
         nome_Arq_Limpo = limpaNomeArq(nome_Arq)
         
-        # cria diretório de conteúdo
         criarArquivoDir(diretorio)
         
-        # define o caminho completo
         caminho_Completo = os.path.join(dirQuestao, diretorio, nome_Arq_Limpo)
         
-        # salva o conteúdo em modo binário
         with open(caminho_Completo, 'wb') as f:
             f.write(response.content)
             
