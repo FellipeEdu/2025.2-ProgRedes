@@ -9,7 +9,6 @@ CODE_PAGE       = 'utf-8'         # Definindo a página de
                                   # codificação de caracteres
 # ----------------------------------------------------------------------
 
-
 # Criando o socket (socket.AF_INET -> IPV4 / socket.SOCK_DGRAM -> UDP)
 sockServer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -24,5 +23,3 @@ while True:
 
     # Imprimindo a mensagem recebida convertendo de bytes para string
     print(f'{tuplaCliente}: {byteMensagem.decode(CODE_PAGE)}')
-
-    
