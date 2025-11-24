@@ -32,6 +32,6 @@ while True:
     except Exception as erro:
         print(f"\n! Ocorreu um erro inesperado durante o processo completo: {erro} !")
             
-    print("\nProcessamento concluído.")
+    print(f"\nProcessamento concluído.\n{"*" * 70}")
 
 print("Encerrando o programa.")
