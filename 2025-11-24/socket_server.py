@@ -19,7 +19,10 @@ print('\nRecebendo Mensagens...\n\n')
 
 while True:
     # Recebendo os dados do cliente
-    byteMensagem, tuplaCliente = sockServer.recvfrom(BUFFER_SIZE)
+    byteMensagem, tuplaCliente,  = sockServer.recvfrom(BUFFER_SIZE)
 
+    strNomeHost = socket.gethostbyaddr(tuplaCliente[0])[0]
+    strHost = strNomeHost.split('.')[0].upper()
+    
     # Imprimindo a mensagem recebida convertendo de bytes para string
-    print(f'{tuplaCliente}: {byteMensagem.decode(CODE_PAGE)}')
+    print(f'{tuplaCliente} -> {strHost}: {byteMensagem.decode(CODE_PAGE)}')
