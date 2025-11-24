@@ -1,0 +1,17 @@
+{
+    "Date": "Thu, 20 Nov 2025 22:49:18 GMT",
+    "Content-Type": "image/jpeg",
+    "Content-Length": "78130",
+    "Connection": "keep-alive",
+    "Expires": "Thu, 20 Nov 2025 23:19:18 GMT",
+    "Vary": "Accept",
+    "X-Original-Image-Size": "65576",
+    "Etag": "\"3a34fdc594ca7c050726a701bb2ed018855ca841\"",
+    "X-IMS": "Enabled",
+    "X-Azion-Request-Id": "4ede29e2c9c649174fb3fcd7b1c16008",
+    "X-Azion-Edge-Location": "JDO",
+    "Access-Control-Allow-Origin": "https://www.kabum.com.br",
+    "Access-Control-Allow-Methods": "GET, HEAD",
+    "Access-Control-Allow-Headers": "*",
+    "Cache-Control": "max-age=1800"
+}
