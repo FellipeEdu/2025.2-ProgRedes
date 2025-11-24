@@ -39,7 +39,7 @@ def baixar_arquivo_pcap(url):
 
 def descompactar_arquivo(caminho_zip):
     # 1. Obter o nome base do arquivo (sem o caminho)
-    nome_base_zip = os.path.basename(caminho_zip).replace('.zip', '')
+    nome_Base_Zip = os.path.basename(caminho_zip).replace('.zip', '')
     
     # --- Tenta Extrair a Data (AAAAMMDD) da String ---
     # Substitui todos os caracteres não-dígitos por um separador único (e.g., espaço)
@@ -47,12 +47,12 @@ def descompactar_arquivo(caminho_zip):
     
     # Itera sobre os caracteres para isolar a data (substituindo o uso de 're')
     
-    data_candidata = ""
+    #data_candidata = ""
     # Se o nome do arquivo for 2025-10-08-traffic-..., a data está no início.
-    if nome_base_zip.startswith(('20', '19')): # Assumindo anos no formato 20xx ou 19xx
+    if nome_Base_Zip.startswith(('20', '19')): # Assumindo anos no formato 20xx ou 19xx
         
         # Pega os primeiros 10 caracteres (YYYY-MM-DD)
-        segmento = nome_base_zip[:10]
+        segmento = nome_Base_Zip[:10]
         
         if len(segmento) == 10 and segmento[4] == '-' and segmento[7] == '-':
             # Formato YYYY-MM-DD encontrado! Converte para AAAAMMDD
@@ -272,25 +272,25 @@ def exibir_resultados(dados):
     else:
         print("Não foram encontrados pacotes válidos.")
 
-    print("\n--- Estatísticas de Pacotes ---")
+    print("\n#------- Estatísticas de Pacotes -------#")
     
-    print(f"Maior Tamanho de Pacote TCP Capturado: {dados['maior_tamanho_tcp']} bytes")
+    print(f"- Maior Tamanho de Pacote TCP Capturado: {dados['maior_tamanho_tcp']} bytes")
 
-    print(f"Pacotes que NÃO foram salvos na totalidade (cortados): {dados['pacotes_cortados']}")
+    print(f"- Pacotes que NÃO foram salvos na totalidade (cortados): {dados['pacotes_cortados']}")
     
-    print(f"Tamanho Médio dos Pacotes UDP: {dados['tamanho_medio_udp']:.2f} bytes")
+    print(f"- Tamanho Médio dos Pacotes UDP: {dados['tamanho_medio_udp']:.2f} bytes")
 
     if 'maior_trafego_ip' in dados:
         ip_Par, traffic = dados['maior_trafego_ip']
-        print(f"Par de IPs com Maior Tráfego: {ip_Par[0]} <-> {ip_Par[1]} ({traffic} bytes)")
+        print(f"- Par de IPs com Maior Tráfego: {ip_Par[0]} <-> {ip_Par[1]} ({traffic} bytes)")
     
     # Interações do IP da Interface
     if 'ip_interface_base' in dados:
-        print(f"\nIP da Interface (assumido): {dados['ip_interface_base']}")
-        print(f"Interagiu com {len(dados['ips_interface'])} outros IPs.")
-        print(f"IPs Interagidos: {dados['ips_interface']}")
+        print(f"\n- IP da Interface (assumido): {dados['ip_interface_base']}")
+        print(f"- Interagiu com {len(dados['ips_interface'])} outros IPs.")
+        print(f"- IPs Interagidos: {dados['ips_interface']}")
     else:
-        print("\nNão foi possível determinar o IP da interface.")
+        print("\n! Não foi possível determinar o IP da interface.")
 
     print("="*50)
 
