@@ -2,7 +2,7 @@
 import socket
 
 # ----------------------------------------------------------------------
-HOST__IP_SERVER = 'COLOQUE_IP_DO_SERVIDOR' # Definindo o IP do servidor
+HOST_IP_SERVER = '192.168.1.2' # Definindo o IP do servidor
 HOST_PORT       = 50000                    # Definindo a porta
 CODE_PAGE       = 'utf-8'                  # Definindo a página de 
                                            # codificação de caracteres
@@ -25,7 +25,6 @@ while True:
 
     # Enviando a mensagem ao servidor      
     sockClient.sendto(bytesMensagem, (HOST_IP_SERVER, HOST_PORT))
-
 
 # Fechando o socket
 sockClient.close()
