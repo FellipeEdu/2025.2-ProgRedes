@@ -9,7 +9,6 @@ CODE_PAGE       = 'utf-8'         # Definindo a página de
 BUFFER_SIZE     = 512             # Tamanho do buffer
 # ----------------------------------------------------------------------
 
-
 # Criando o socket (socket.AF_INET -> IPV4 / socket.SOCK_STREAM -> TCP)
 sockTCP = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 

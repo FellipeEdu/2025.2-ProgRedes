@@ -1,7 +1,6 @@
 # Importando a biblioteca SOCKET
 import socket
 
-
 # ----------------------------------------------------------------------
 HOST_IP_SERVER = '192.168.1.2' # Definindo o IP do servidor
 HOST_PORT      = 50000                    # Definindo a porta
