@@ -30,7 +30,7 @@ try:
             intTamanhoMensagem = int(byteMensagem.decode(CODE_PAGE))
 
             if intTamanhoMensagem > BUFFER_SIZE: BUFFER_SIZE = intTamanhoMensagem
-            
+
             byteMensagem, tuplaCliente = sockServer.recvfrom(BUFFER_SIZE)
 
         except socket.timeout: continue
