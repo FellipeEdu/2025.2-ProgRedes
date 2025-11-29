@@ -34,6 +34,7 @@ while True:
     # Recebendo resposta do servidor
     bytesMensagemRetorno, tuplaCliente = sockClient.recvfrom(BUFFER_SIZE)
     intTamanhoMensagem = int(bytesMensagemRetorno.decode(CODE_PAGE))
+    
     if intTamanhoMensagem > BUFFER_SIZE: BUFFER_SIZE = intTamanhoMensagem
 
     bytesMensagemRetorno, tuplaOrigem = sockClient.recvfrom(BUFFER_SIZE)
