@@ -25,14 +25,14 @@ print(f'MENSAGENS ABAIXO\n{'-' * 50}')
 try:
     while True:
         try:
-             # Recebendo os dados do cliente
+            # Recebendo os dados do cliente
             byteMensagem, tuplaCliente,  = sockServer.recvfrom(BUFFER_SIZE)
         except socket.timeout:
             continue
         else:
+            # Obtendo o nome (HOST) do Cliente
             strNomeHost = socket.gethostbyaddr(tuplaCliente[0])[0]
             strHost = strNomeHost.split('.')[0].upper()
-
             # Imprimindo a mensagem recebida convertendo de bytes para string
             print(f'{tuplaCliente} -> {strHost}: {byteMensagem.decode(CODE_PAGE)}')
             
