@@ -6,7 +6,6 @@ HOST_IP_SERVER = '192.168.1.2' # Definindo o IP do servidor
 HOST_PORT      = 50000       # Definindo a porta
 TUPLA_SERVER   = (HOST_IP_SERVER, HOST_PORT)
 
-
 BUFFER_SIZE    = 10          # Tamanho do buffer
 CODE_PAGE      = 'utf-8'     # Definindo a página de 
                              # codificação de caracteres
@@ -33,8 +32,7 @@ while True:
 
     # Recebendo resposta do servidor
     bytesMensagemRetorno, tuplaCliente = sockClient.recvfrom(BUFFER_SIZE)
-    intTamanhoMensagem = int(bytesMensagemRetorno.decode(CODE_PAGE))
-    
+    intTamanhoMensagem = int(bytesMensagemRetorno.decode(CODE_PAGE))  
     if intTamanhoMensagem > BUFFER_SIZE: BUFFER_SIZE = intTamanhoMensagem
 
     bytesMensagemRetorno, tuplaOrigem = sockClient.recvfrom(BUFFER_SIZE)
