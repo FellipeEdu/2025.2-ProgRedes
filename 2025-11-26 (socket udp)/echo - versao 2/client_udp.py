@@ -34,14 +34,14 @@ while True:
             print(f'Servidor retornou um erro: {strStatus}\n')
             continue
             
-        if strStatus != 'OK_PRONTO_PARA_RECEBER':
+        if strStatus != 'OK_PRONTO':
             print(f'Erro de protocolo. Recebido: {strStatus}\n')
             continue
 
         print('\nConexão estabelecida. Iniciando recebimento...')
 
         # recebendo e salvando
-        nomeArqLocal = f'{DIRETORIO}\\BAIXADO_{strNomeArquivo}'
+        nomeArqLocal = f'{DIRETORIO}\\BAIXADO_controle_{strNomeArquivo}'
         pacotesRecebidos = 0
         ultimoPacote = 0
 
@@ -50,40 +50,49 @@ while True:
                 try:
                     bytesPacote, tuplaOrigem = sockClient.recvfrom(BUFFER_SIZE)
 
+                    # TRATAMENTO DE FIM
                     if bytesPacote == b'FIM_TRANSFERENCIA':
+                        sockClient.sendto(b'FIM_ACK', TUPLA_SERVER) 
                         break
 
-                    # extraindo cabeçalho e dados
-                    # Procura o primeiro ':' para separar a numeração
+                    # EXTRAI CABEÇALHO E DADOS
                     try:
-                        pacotesRecebidos += 1
                         cabecalho, bytesDados = bytesPacote.split(b':', 1)
-                        numeroPacote = int(cabecalho.decode(CODE_PAGE))
+                        numPacote = int(cabecalho.decode(CODE_PAGE))
                         
-                        # checagem de ordem (para ignorar duplicatas ou pacotes fora de ordem)
-                        if numeroPacote == ultimoPacote + 1:
+                        pacotesRecebidos += 1
+                        
+                        # Pacote Corretamente em Ordem
+                        if numPacote == ultimoPacote + 1:
                             arquivo.write(bytesDados)
-                            ultimoPacote = numeroPacote
-
-                            # NOVO: Envio do ACK 
-                            # Envia a confirmação para o servidor
-                            ack_message = f'ACK:{numeroPacote}'.encode(CODE_PAGE)
-                            sockClient.sendto(ack_message, TUPLA_SERVER)
+                            ultimoPacote = numPacote
                             
-                            if pacotesRecebidos % 20 == 0:  print(f'Pacote #{numeroPacote} recebido e gravado...')
-                        
-                    except ValueError:
-                        # Pacote com formato inválido ou 'FIM'
-                        if bytesPacote != b'FIM_TRANSFERENCIA':
-                            print("AVISO: Pacote inválido ou fora de ordem ignorado.")
-                        pass # vai continuar o loop
+                            # Envia ACK para o servidor
+                            ackMsg = f'ACK:{numPacote}'.encode(CODE_PAGE)
+                            sockClient.sendto(ackMsg, TUPLA_SERVER)
+                            
+                            if ultimoPacote % 100 == 0: print(f'Pacote #{ultimoPacote} ACK enviado...')
 
-                except socket.timeout: 
+                        # Pacote Duplicado (Reenvio)
+                        elif numPacote <= ultimoPacote:
+                            # O pacote foi retransmitido pelo servidor. Reenvia o ACK do último pacote salvo.
+                            ackMsg = f'ACK:{ultimoPacote}'.encode(CODE_PAGE)
+                            sockClient.sendto(ackMsg, TUPLA_SERVER)
+                            # Não escreve o dado
+                            
+                        # Pacote Perdido (Fora de Ordem e não é reenvio)
+                        else:
+                             # O cliente espera pelo pacote correto (que foi perdido)
+                             # O servidor vai atingir o timeout e retransmitir o pacote correto.
+                             print(f'AVISO: Pacote #{numPacote} fora de ordem. Esperando #{ultimoPacote + 1}.')
+                             
+                    except ValueError:
+                        pass # Pacote inválido ignorado
+
+                except socket.timeout:
                     print('\nTimeout: Servidor não enviou mais dados. Tentando novamente...')
-                    #time.sleep(1)
-                    # No UDP, se o cliente não envia ACK, o servidor não sabe que parou de receber.
-                    # Simplesmente assume-se que o arquivo foi cortado.
                     break
+                        
         print(f'\n----- SUCESSO -----')
         print(f"Arquivo '{strNomeArquivo}' salvo localmente como '{nomeArqLocal}'.")
         print(f'Total de pacotes processados: {ultimoPacote}\n')
