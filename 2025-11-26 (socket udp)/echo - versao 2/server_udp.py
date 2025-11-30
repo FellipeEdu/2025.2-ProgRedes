@@ -3,7 +3,6 @@ import socket
 # ----------------------------------------------------------------------
 HOST_IP_SERVER  = ''              # Definindo o IP do servidor
 HOST_PORT       = 50000           # Definindo a porta
-
 BUFFER_SIZE     = 10              # Tamanho do buffer
 CODE_PAGE       = 'utf-8'         # Definindo a página de 
                                   # codificação de caracteres
