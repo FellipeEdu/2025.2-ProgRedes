@@ -1,4 +1,4 @@
-import socket, os.path
+import socket, os.path, time
 
 # ----------------------------------------------------------------------
 HOST_IP_SERVER = '192.168.1.2' # Definindo o IP do servidor
@@ -41,7 +41,7 @@ while True:
         print('\nConexão estabelecida. Iniciando recebimento...')
 
         # recebendo e salvando
-        nomeArqLocal = f'{strNomeArquivo}_BAIXADO'
+        nomeArqLocal = f'{DIRETORIO}\\BAIXADO_{strNomeArquivo}'
         pacotesRecebidos = 0
         ultimoPacote = 0
 
@@ -64,9 +64,13 @@ while True:
                         if numeroPacote == ultimoPacote + 1:
                             arquivo.write(bytesDados)
                             ultimoPacote = numeroPacote
+
+                            # NOVO: Envio do ACK 
+                            # Envia a confirmação para o servidor
+                            ack_message = f'ACK:{numeroPacote}'.encode(CODE_PAGE)
+                            sockClient.sendto(ack_message, TUPLA_SERVER)
                             
-                            if pacotesRecebidos % 10 == 0:
-                                print(f'Pacote #{numeroPacote} recebido e gravado...')
+                            if pacotesRecebidos % 20 == 0:  print(f'Pacote #{numeroPacote} recebido e gravado...')
                         
                     except ValueError:
                         # Pacote com formato inválido ou 'FIM'
@@ -74,8 +78,12 @@ while True:
                             print("AVISO: Pacote inválido ou fora de ordem ignorado.")
                         pass # vai continuar o loop
 
-                except socket.timeout: break
-
+                except socket.timeout: 
+                    print('\nTimeout: Servidor não enviou mais dados. Tentando novamente...')
+                    #time.sleep(1)
+                    # No UDP, se o cliente não envia ACK, o servidor não sabe que parou de receber.
+                    # Simplesmente assume-se que o arquivo foi cortado.
+                    break
         print(f'\n----- SUCESSO -----')
         print(f"Arquivo '{strNomeArquivo}' salvo localmente como '{nomeArqLocal}'.")
         print(f'Total de pacotes processados: {ultimoPacote}\n')
