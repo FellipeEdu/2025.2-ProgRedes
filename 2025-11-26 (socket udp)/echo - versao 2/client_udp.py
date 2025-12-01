@@ -94,7 +94,7 @@ while True:
                     break
                         
         print(f'\n----- SUCESSO -----')
-        print(f"Arquivo '{strNomeArquivo}' salvo localmente como '{nomeArqLocal}'.")
+        print(f"Arquivo '{strNomeArquivo}' salvo localmente como '{nomeArqLocal}'")
         print(f'Total de pacotes processados: {ultimoPacote}\n')
 
     except socket.timeout:
