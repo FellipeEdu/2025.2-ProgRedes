@@ -1,4 +1,4 @@
-import socket, os.path, time
+import socket, os.path
 
 # ----------------------------------------------------------------------
 HOST_IP_SERVER  = ''              # Definindo o IP do servidor
@@ -17,7 +17,7 @@ sockServer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # Ligando o socket à porta
 sockServer.bind( (HOST_IP_SERVER, HOST_PORT) ) 
 
-# Definindo um timeout (tempo de vida) para o socket
+# Definindo timeout para o socket
 sockServer.settimeout(1.0)
 
 print('\nRecebendo Arquivos...')
@@ -56,27 +56,27 @@ try:
                 while True: 
                     try:
                         # 3a. Ler o próximo pedaço (só se não for retransmissão)
-                        if numPacote == 0 or not retransmitir:                              
+                        if numPacote == 0 or not retransmitir: 
                             # Guarda a posição atual para retransmissão
                             posicaoAnterior = arquivo.tell()
                             bytesDados = arquivo.read(BUFFER_SIZE - 20)
                             
                             if not bytesDados:
-                                break # Fim do arquivo
+                                break # Fim do arquivo -> Quebra o loop while True
                                 
                             numPacote += 1
-                                    
+                                
                             cabecalho = f'{numPacote}:'.encode(CODE_PAGE)
                             pacoteCompleto = cabecalho + bytesDados
                                 
-                            # 3b. Envia o pacote
+                        # 3b. Envia o pacote
                         sockServer.sendto(pacoteCompleto, tuplaCliente)
                             
-                            # 3c. Espera pelo ACK
+                        # 3c. Espera pelo ACK
                         bytesAck, _ = sockServer.recvfrom(BUFFER_SIZE) 
                         strAck = bytesAck.decode(CODE_PAGE)
                             
-                            # Confirma se o ACK é do pacote correto
+                        # Confirma se o ACK é do pacote correto
                         if strAck == f'ACK:{numPacote}':
                             if numPacote % 100 == 0: print(f'Pacote #{numPacote} ACK recebido. Próximo...')
                             retransmitir = False # Avança para o próximo pacote
@@ -86,12 +86,18 @@ try:
                             print(f'AVISO: ACK inválido/duplicado ({strAck}). Reenviando #{numPacote}.')
                             retransmitir = True
                             arquivo.seek(posicaoAnterior) # Volta o ponteiro para re-leitura
-                    except:
-                        # Timeout: Pacote ou ACK perdido. Reenvia o pacote atual.
+                            
+                    except socket.timeout: # Captura apenas o timeout do socket
+                        # Timeout (Pacote ou ACK perdido): reenvia o pacote atual.
                         print(f'TIMEOUT ao esperar ACK #{numPacote}. Reenviando.')
                         retransmitir = True
                         arquivo.seek(posicaoAnterior) # Volta o ponteiro para re-leitura
-                    
+                    except Exception as erro:
+                         # Captura erros inesperados para evitar travamento
+                         print(f'ERRO INESPERADO durante o envio do pacote: {erro}')
+                         break # Quebra o loop interno
+
+                # ENVIA SINAL DE FIM (com tentativa de ACK de FIM)
                 for _ in range(5): 
                     sockServer.sendto(b'FIM_TRANSFERENCIA', tuplaCliente)
                     try:
@@ -101,9 +107,10 @@ try:
                     except socket.timeout:
                         print('Timeout no ACK FIM. Tentando novamente.')
                         
-                    print(f'Arquivo enviado em {numPacote} pacotes.')
-                    print(f'Transferência finalizada para {strNomeArquivo}.\n{'*' * 50}')
-                    
+                # CORREÇÃO 3: As impressões finais foram movidas para fora do laço 'for'
+                print(f'\nArquivo enviado em {numPacote} pacotes.')
+                print(f'Transferência finalizada para {strNomeArquivo}.\n{'*' * 50}')
+                        
         except Exception as erro:
             print(f'ERRO ao ler/enviar arquivo: {erro}')
             sockServer.sendto(f'ERRO INTERNO: {erro}'.encode(CODE_PAGE), tuplaCliente)
