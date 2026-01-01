@@ -22,6 +22,13 @@ BUFFER_SIZE     = 512
 # Timeout do socket em segundos
 TIMEOUT_SOCKET  = 0.5
 
+# Operações (1 byte)
+OP_DOWNLOAD = 10
+OP_LIST = 20
+OP_UPLOAD = 30
+OP_RESUME = 40
+OP_MASK = 50
+
 # Status (1 byte)
 STATUS_OK = 1
 STATUS_ERRO = 0
