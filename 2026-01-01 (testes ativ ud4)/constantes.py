@@ -1,13 +1,13 @@
 import os
 
 # IP servidor
-HOST_IP_SERVER  = '10.25.1.16'
+HOST_IP_SERVER  = '192.168.56.1'
 
 # IP cliente
-HOST_IP_CLIENT  = '10.25.2.214'
+HOST_IP_CLIENT  = ''
 
 # Porta
-HOST_PORT       = 50000           
+HOST_PORT       = 20000           
 
 # Tupla do servidor
 TUPLA_SERVER    = (HOST_IP_SERVER, HOST_PORT)
@@ -22,8 +22,15 @@ BUFFER_SIZE     = 512
 # Timeout do socket em segundos
 TIMEOUT_SOCKET  = 0.5
 
+# Status (1 byte)
+STATUS_OK = 1
+STATUS_ERRO = 0
+STATUS_NOT_FOUND = 10
+STATUS_HASH_INVALIDO = 20
+
 # Diretórios de arquivos de imagens no servidor e cliente
-DIR_IMG_SERVER  = os.path.dirname(__file__) + '\\server_files'
-DIR_IMG_CLIENT  = os.path.dirname(__file__) + '\\client_files'
+BASE_DIR = os.path.dirname(__file__)
+DIR_IMG_SERVER  = os.path.join(BASE_DIR, 'server_files')
+DIR_IMG_CLIENT  = os.path.join(BASE_DIR, 'client_files')
 
 # --------------------------------------------------------------------------------
