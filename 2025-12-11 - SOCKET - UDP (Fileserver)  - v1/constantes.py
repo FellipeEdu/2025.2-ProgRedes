@@ -3,10 +3,10 @@ import os, socket
 
 # --------------------------------------------------------------------------------
 # Definindo o IP do servidor para os clientes
-HOST_IP_SERVER  = '10.25.1.16'
+HOST_IP_SERVER  = '192.168.1.5'
 
 # Obtendo o IP do cliente
-HOST_IP_CLIENT  = '10.25.2.214'
+HOST_IP_CLIENT  = '192.168.56.1'
 
 # Definindo a porta
 HOST_PORT       = 50000           
@@ -19,7 +19,7 @@ TUPLA_CLIENTE   = (HOST_IP_CLIENT, HOST_PORT)
 CODE_PAGE       = 'utf-8'    
 
 # Definindo o tamanho do buffer
-BUFFER_SIZE     = 512
+BUFFER_SIZE     = 1024
 
 # Definindo o tempo de timeout do socket em segundos
 TIMEOUT_SOCKET  = 0.5
