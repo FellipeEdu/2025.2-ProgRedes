@@ -17,7 +17,7 @@ TUPLA_CLIENTE   = (HOST_IP_CLIENT, HOST_PORT)
 CODE_PAGE       = 'utf-8'    
 
 # Tamanho do buffer
-BUFFER_SIZE     = 512
+BUFFER_SIZE     = 1024
 
 # Timeout do socket em segundos
 TIMEOUT_SOCKET  = 0.5
