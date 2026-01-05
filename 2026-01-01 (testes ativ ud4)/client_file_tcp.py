@@ -1,10 +1,28 @@
-# Importando as bibliotecas necessárias
 import socket, os
+from constantes import *
+from funcoes import *
 
-# Importando o arquivo de constantes
-import constantes
+print('\n' + '-'*100)
+print('CLIENTE TCP - Enviando pedidos de arquivo...')
+print('Digite SAIR para encerrar o cliente.\n')
+print(f'IP/Porta do Cliente: {("", "auto")}')
+print('-'*100 + '\n')
 
-# Limpando a tela do terminal
+'''server_host = input('IP do servidor (ex: 127.0.0.1): ').strip()
+if not server_host:
+    server_host = '127.0.0.1'''
+ensure_dir(DIR_IMG_CLIENT)
+
+while True:
+    nome = input('Digite o arquivo para receber: ').strip()
+    if not nome:
+        continue
+    if nome.lower() == 'sair':
+        break
+    # passa server_host como primeiro parâmetro explicitamente
+    request_file(HOST_IP_SERVER, nome, DIR_IMG_CLIENT)
+
+'''# Limpando a tela do terminal
 os.system('cls') if os.name == 'nt' else os.system('clear')
 
 try:
@@ -67,6 +85,6 @@ except Exception as strErro:
    print(f'\nERRO GENÉRICO..: {strErro}\n\n')
 finally:
    sockClient.close()
-   print('Cliente finalizado com Sucesso...\n\n')
+   print('Cliente finalizado com Sucesso...\n\n')'''
 
 #-------------------------------

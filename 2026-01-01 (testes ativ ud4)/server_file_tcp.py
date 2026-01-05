@@ -1,10 +1,41 @@
-# Importando as bibliotecas necessárias
-import socket, os
+import socket
+from constantes import *
+from funcoes import ensure_dir, handle_connection
 
-# Importando o arquivo de constantes
-import constantes
+"""Inicializa o servidor e atende conexões sequencialmente (cada requisição em nova conexão)."""
+server = None
+try:
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(('', HOST_PORT))
+    server.listen(5)
+    print('\n' + '-'*100)
+    print('SERVIDOR TCP Inicializado - Aguardando conexões...')
+    print('Pressione CTRL+C para encerrar.')
+    print(f'IP/Porta do Servidor: {("", HOST_PORT)}')
+    print('-'*100 + '\n')
 
-# Limpando a tela do terminal
+    ensure_dir(DIR_IMG_SERVER)
+
+    while True:
+        conn, addr = server.accept()
+        # atendimento sequencial (sem threads)
+        handle_connection(conn, addr)
+
+except KeyboardInterrupt:
+        print('\nAVISO: encerrando servidor...\n')
+except socket.error as erro_Servidor:
+        print(f'\nERRO DE SOCKET: {erro_Servidor}\n')
+except Exception as erro:
+        print(f'\nERRO GENÉRICO: {erro}\n')
+finally:
+    if server:
+        try:
+            server.close()
+        except:
+            pass
+
+'''# Limpando a tela do terminal
 os.system('cls') if os.name == 'nt' else os.system('clear')
 
 try:
@@ -12,38 +43,38 @@ try:
    sockServer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
    # Ligando o socket do servidor à porta
-   sockServer.bind(('', constantes.HOST_PORT))
+   sockServer.bind(('', HOST_PORT))
 
    # Definindo um timeout para o socket.
-   sockServer.settimeout(constantes.TIMEOUT_SOCKET)
+   sockServer.settimeout(TIMEOUT_SOCKET)
 
    # Mensagem de início do servidor
    print('\n' + '-'*100)
    print('SERVIDOR UDP Inicializado - Recebendo Comandos...')
    print('Pressione CTRL+C para sair do servidor...\n')
-   print(f'IP/Porta do Servidor.:{constantes.TUPLA_SERVER}')
+   print(f'IP/Porta do Servidor.:{TUPLA_SERVER}')
    print('-'*100 + '\n')
    
    while True:
       try:
          # Recebendo solicitações do cliente (fragmentos)
-         byteFragmento, tuplaCliente = sockServer.recvfrom(constantes.BUFFER_SIZE)        
+         byteFragmento, tuplaCliente = sockServer.recvfrom(BUFFER_SIZE)        
       except socket.timeout:
          continue
       else: 
         # Abrindo o arquivo para a enviar ao cliente
-        strNomeArquivo = byteFragmento.decode(constantes.CODE_PAGE)
+        strNomeArquivo = byteFragmento.decode(CODE_PAGE)
         print (f'Recebi pedido para o arquivo: {strNomeArquivo}')
         try:
-           arqEnvio = open (f'{constantes.DIR_IMG_SERVER}\\{strNomeArquivo}', 'rb')
+           arqEnvio = open (f'{DIR_IMG_SERVER}\\{strNomeArquivo}', 'rb')
         except FileNotFoundError:
            print (f'Arquivo não encontrado: {strNomeArquivo}\n')
-           strMensagemErro = 'ERRO: Arquivo não encontrado.'.encode(constantes.CODE_PAGE)
+           strMensagemErro = 'ERRO: Arquivo não encontrado.'.encode(CODE_PAGE)
            sockServer.sendto(strMensagemErro, tuplaCliente)
            continue
         except Exception as strErro:
            print (f'Erro ao abrir o arquivo: {strErro}\n')
-           strMensagemErro = f'ERRO: {strErro}'.encode(constantes.CODE_PAGE)
+           strMensagemErro = f'ERRO: {strErro}'.encode(CODE_PAGE)
            sockServer.sendto(strMensagemErro, tuplaCliente)
            continue
         else:
@@ -65,4 +96,4 @@ except Exception as strErro:
 finally:
    # Fechando o Socket
    sockServer.close()
-   print('Servidor finalizado com Sucesso...\n\n')
+   print('Servidor finalizado com Sucesso...\n\n')'''
