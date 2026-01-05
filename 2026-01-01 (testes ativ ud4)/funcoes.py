@@ -60,16 +60,16 @@ def unica_Conexao(conexao, cliente):
     try:
         print(f'Conexão de {cliente}')
         # recebe 4 bytes com o tamanho do nome
-        tam_Bytes = recv_all(conexao, 4)
-        if not tam_Bytes:
-            print('Pedido malformado (sem tamanho).')
+        bytes_Tam = recv_all(conexao, 4)
+        if not bytes_Tam:
+            print('Pedido mal formado (sem tamanho).')
             return
-        tam_Nome = unpack_uint32_be(tam_Bytes)
-        nome_Bytes = recv_all(conexao, tam_Nome)
-        if nome_Bytes is None:
-            print('Pedido malformado (nome incompleto).')
+        tam_Nome = unpack_uint32_be(bytes_Tam)
+        bytes_Nome = recv_all(conexao, tam_Nome)
+        if bytes_Nome is None:
+            print('Pedido mal formado (nome incompleto).')
             return
-        nome_Arq = nome_Bytes.decode(CODE_PAGE)
+        nome_Arq = bytes_Nome.decode(CODE_PAGE)
         print(f'Requisição de arquivo: {nome_Arq}')
 
         try:
@@ -104,62 +104,88 @@ def unica_Conexao(conexao, cliente):
         except:
             pass
 
-# --- função do cliente: agora com server_host como parâmetro explícito ---
+# --- funções do cliente: agora com server_host como parâmetro explícito ---
+# 10
 def solicitar_Arq(server_host, nome, pasta_Dest=None):
     """
     Conecta ao servidor indicado por server_host e solicita o arquivo.
-    Agora reaproveita recv_until_eof_and_write para gravar os dados até EOF.
+
+    Conecta a server_host e solicita filename.
+    Envia: 4 bytes len(nome) + nome
+    Recebe: 1 byte status + 4 bytes tamanho + payload
     """
-    if pasta_Dest is None: pasta_Dest = DIR_IMG_CLIENT
+    if pasta_Dest is None:
+        pasta_Dest = DIR_IMG_CLIENT
     dir_existe(pasta_Dest)
-    dest_path = os.path.join(pasta_Dest, nome)
+    caminho_Dest = os.path.join(pasta_Dest, nome)
 
-    server = None
+    tcp_Socket = None
     try:
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.settimeout(TIMEOUT_SOCKET)
-        server.connect((server_host, HOST_PORT))
+        tcp_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tcp_Socket.settimeout(TIMEOUT_SOCKET)
+        tcp_Socket.connect((server_host, HOST_PORT))
 
-        # envia nome do arquivo (bytes)
-        server.send(nome.encode(CODE_PAGE))
+        # envia nome com 4 bytes de comprimento
+        bytes_Nome = nome.encode(CODE_PAGE)
+        send_all(tcp_Socket, pack_uint32_be(len(bytes_Nome)) + bytes_Nome)
 
-        # lê a primeira resposta (pode trazer 'OK' seguido de parte dos dados)
-        primeira = server.recv(len(b'OK') + 10)  # tenta ler algo razoável
-        if not primeira:
+        # lê 1 byte de status
+        bytes_Status = recv_all(tcp_Socket, 1)
+        if not bytes_Status:
             print('Sem resposta do servidor.')
             return False
+        status = bytes_Status[0]
 
-        if primeira.startswith(b'OK'):
-            resto = primeira[2:]  # pode estar vazio, ou conter dados até EOF
-            # usa a função reutilizável para gravar (passando o resto inicial)
-            ok = recv_until_eof_and_write(server, dest_path, inicial=resto)
-            if ok:
-                print(f'Arquivo recebido: {dest_path}')
-                return True
-            else:
-                print('Conexão encerrada inesperadamente.')
-                return False
-        else:
-            # recebeu mensagem de erro (pode ser 'ERRO: ...')
-            rest = server.recv(BUFFER_SIZE)
-            msg = (primeira + rest).decode(CODE_PAGE, errors='ignore')
-            print(msg)
+        # lê 4 bytes tamanho
+        bytes_Tam = recv_all(tcp_Socket, 4)
+        if bytes_Tam is None:
+            print('Resposta mal formada do servidor.')
             return False
+        tam_Dados = unpack_uint32_be(bytes_Tam)
+
+        # lê payload exatamente payload_size bytes (pode ser grande; lê em loop)
+        restante = tam_Dados
+        dir_existe(pasta_Dest)
+        if status == STATUS_OK:
+            with open(caminho_Dest, 'wb') as arquivo:
+                while restante > 0:
+                    para_Ler = min(BUFFER_SIZE, restante)
+                    bloco = recv_all(tcp_Socket, para_Ler)
+                    if bloco is None:
+                        print('Conexão encerrada inesperadamente.')
+                        return False
+                    arquivo.write(bloco)
+                    restante -= len(bloco)
+            print(f'Arquivo recebido: {caminho_Dest}\n{'*' * 30}')
+            return True
+        else:
+            # payload é mensagem de erro/descrição — lê tudo (pode ser 0)
+            msg = b''
+            if tam_Dados > 0:
+                msg = recv_all(tcp_Socket, tam_Dados) or b''
+            try:
+                print(msg.decode(CODE_PAGE, errors='ignore'))
+            except:
+                print('\nErro do servidor (mensagem binária).')
+            return False
+
     except socket.timeout:
-        print('Timeout: sem resposta do servidor.')
+        print('\nTimeout: sem resposta do servidor.')
         return False
     except FileNotFoundError:
-        print('Erro ao criar arquivo local.')
+        print('\nErro ao criar arquivo local.')
         return False
-    except socket.error as se:
-        print(f'Erro de socket: {se}')
+    except socket.error as erro_Socket:
+        print(f'\nErro de socket: {erro_Socket}')
         return False
-    except Exception as e:
-        print(f'Erro genérico: {e}')
+    except Exception as erro:
+        print(f'\nErro genérico: {erro}')
         return False
     finally:
-        if server:
+        if tcp_Socket:
             try:
-                server.close()
+                tcp_Socket.close()
             except:
                 pass
+
+# 20

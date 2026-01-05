@@ -2,11 +2,11 @@ import socket, os
 from constantes import *
 from funcoes import *
 
-print('\n' + '-'*100)
+print('\n' + '-' * 100)
 print('CLIENTE TCP - Enviando pedidos de arquivo...')
 print('Digite SAIR para encerrar o cliente.\n')
 print(f'IP/Porta do Cliente: {("", "auto")}')
-print('-'*100 + '\n')
+print('-' * 100 + '\n')
 
 '''server_host = input('IP do servidor (ex: 127.0.0.1): ').strip()
 if not server_host:
