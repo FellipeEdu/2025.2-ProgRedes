@@ -11,7 +11,7 @@ print('-'*100 + '\n')
 '''server_host = input('IP do servidor (ex: 127.0.0.1): ').strip()
 if not server_host:
     server_host = '127.0.0.1'''
-ensure_dir(DIR_IMG_CLIENT)
+dir_existe(DIR_IMG_CLIENT)
 
 while True:
     nome = input('Digite o arquivo para receber: ').strip()
@@ -20,7 +20,7 @@ while True:
     if nome.lower() == 'sair':
         break
     # passa server_host como primeiro parâmetro explicitamente
-    request_file(HOST_IP_SERVER, nome, DIR_IMG_CLIENT)
+    solicitar_Arq(HOST_IP_SERVER, nome, DIR_IMG_CLIENT)
 
 '''# Limpando a tela do terminal
 os.system('cls') if os.name == 'nt' else os.system('clear')

@@ -1,6 +1,6 @@
 import socket
 from constantes import *
-from funcoes import ensure_dir, handle_connection
+from funcoes import dir_existe, unica_Conexao
 
 """Inicializa o servidor e atende conexões sequencialmente (cada requisição em nova conexão)."""
 server = None
@@ -15,12 +15,11 @@ try:
     print(f'IP/Porta do Servidor: {("", HOST_PORT)}')
     print('-'*100 + '\n')
 
-    ensure_dir(DIR_IMG_SERVER)
+    dir_existe(DIR_IMG_SERVER)
 
     while True:
-        conn, addr = server.accept()
-        # atendimento sequencial (sem threads)
-        handle_connection(conn, addr)
+        conexao, cliente = server.accept()
+        unica_Conexao(conexao, cliente)
 
 except KeyboardInterrupt:
         print('\nAVISO: encerrando servidor...\n')
@@ -29,11 +28,10 @@ except socket.error as erro_Servidor:
 except Exception as erro:
         print(f'\nERRO GENÉRICO: {erro}\n')
 finally:
-    if server:
-        try:
-            server.close()
-        except:
-            pass
+    try:
+        if server: server.close()
+    except:
+        pass
 
 '''# Limpando a tela do terminal
 os.system('cls') if os.name == 'nt' else os.system('clear')

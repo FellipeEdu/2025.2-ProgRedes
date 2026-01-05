@@ -5,193 +5,143 @@ import json
 from constantes import *
 
 # --- utilitários ---
-def ensure_dir(path):
-    if not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
+def dir_existe(caminho):
+    if not os.path.exists(caminho):
+        os.makedirs(caminho, exist_ok=True)
 
-def safe_join(base, *paths):
+def safe_join(base, *caminhos):
     """Evita path traversal: ensures returned path is inside base."""
-    candidate = os.path.abspath(os.path.join(base, *paths))
+    arq_Teste = os.path.abspath(os.path.join(base, *caminhos))
     base_abs = os.path.abspath(base)
-    if not (candidate == base_abs or candidate.startswith(base_abs + os.sep)):
+    if not (arq_Teste == base_abs or arq_Teste.startswith(base_abs + os.sep)):
         raise ValueError("Escape da pasta não permitido")
-    return candidate
+    return arq_Teste
 
-def send_all(sock, data):
-    totalsent = 0
-    while totalsent < len(data):
-        sent = sock.send(data[totalsent:])
-        if sent == 0:
+def send_all(socket, data):
+    total_enviado = 0
+    while total_enviado < len(data):
+        enviado = socket.send(data[total_enviado:])
+        if enviado == 0:
             raise RuntimeError("Conexão de socket quebrada durante send")
-        totalsent += sent
+        total_enviado += enviado
 
-def recv_all(sock, n):
-    data = b''
-    while len(data) < n:
-        chunk = sock.recv(n - len(data))
-        if not chunk:
+def recv_all(socket, n_bytes):
+    dados = b''
+    while len(dados) < n_bytes:
+        bloco = socket.recv(n_bytes - len(dados))
+        if not bloco:
             return None
-        data += chunk
-    return data
+        dados += bloco
+    return dados
 
-# --- recv até marcador EOF e grava em arquivo ---
-def recv_until_eof_and_write(sock, dest_path):
-    """
-    Recebe dados do socket e grava em dest_path até encontrar b'EOF'.
-    Detecta EOF mesmo que venha fragmentado entre recv calls.
-    Retorna True se completou com sucesso, False caso conexão fechada inesperadamente.
-    """
-    EOF = b'EOF'
-    tail_len = len(EOF)  # 3
-    tail = b''
-    try:
-        with open(dest_path, 'wb') as f:
-            while True:
-                bloco = sock.recv(BUFFER_SIZE)
-                if not bloco:
-                    # conexão fechada inesperadamente
-                    return False
-                combined = tail + bloco
-                idx = combined.find(EOF)
-                if idx != -1:
-                    # grava tudo antes do EOF
-                    to_write = combined[:idx]
-                    if to_write:
-                        f.write(to_write)
-                    return True
-                else:
-                    # não encontrou EOF: grava tudo exceto os últimos tail_len bytes
-                    if len(combined) <= tail_len:
-                        tail = combined
-                        continue
-                    write_part = combined[:-tail_len]
-                    f.write(write_part)
-                    tail = combined[-tail_len:]
-    except Exception:
-        # propaga a exceção para o chamador tratar se necessário
-        raise
+def pack_uint32_be(n):
+    return int(n).to_bytes(4, byteorder='big', signed=False)
+
+def unpack_uint32_be(b):
+    return int.from_bytes(b, byteorder='big', signed=False)
+
+# --- servidor (download simples usando cabeçalho: 1 byte status + 4 bytes tamanho) ---
+def stream_Arquivo(socket, caminho_Arq):
+    """Envia o conteúdo do arquivo em blocos usando send_all."""
+    with open(caminho_Arq, 'rb') as arquivo:
+        while True:
+            bloco = arquivo.read(BUFFER_SIZE)
+            if not bloco: break
+            send_all(socket, bloco)
 
 # --- funções do servidor (usam EOF como delimitador de fim de arquivo) ---
-def handle_connection(conn, addr):
-    """Lógica de processamento de uma única conexão (download simples)."""
+def unica_Conexao(conexao, cliente):
+    """
+    Lê 4 bytes (len nome) + nome; responde com:
+    1 byte status + 4 bytes tamanho + blocos de dados
+    - status == STATUS_OK: blocos de dados = bytes do arquivo
+    - status != STATUS_OK: blocos de dados = mensagem de erro (texto)
+    """
     try:
-        print(f'Conexão de {addr}')
-        # recebe pedido de nome (até CHUNK_SIZE bytes)
-        pedido = conn.recv(BUFFER_SIZE)
-        if not pedido:
-            print('Recebeu pedido vazio. Encerrando conexão.')
+        print(f'Conexão de {cliente}')
+        # recebe 4 bytes com o tamanho do nome
+        tam_Bytes = recv_all(conexao, 4)
+        if not tam_Bytes:
+            print('Pedido malformado (sem tamanho).')
             return
-        nome_arquivo = pedido.decode(CODE_PAGE).strip()
-        print(f'Recebi pedido para o arquivo: {nome_arquivo}')
+        tam_Nome = unpack_uint32_be(tam_Bytes)
+        nome_Bytes = recv_all(conexao, tam_Nome)
+        if nome_Bytes is None:
+            print('Pedido malformado (nome incompleto).')
+            return
+        nome_Arq = nome_Bytes.decode(CODE_PAGE)
+        print(f'Requisição de arquivo: {nome_Arq}')
 
         try:
-            caminho = safe_join(DIR_IMG_SERVER, nome_arquivo)
+            caminho = safe_join(DIR_IMG_SERVER, nome_Arq)
         except ValueError:
-            print('Pedido tentou escapar da pasta de servidor. Negando.')
-            send_all(conn, f'ERRO: Caminho inválido'.encode(CODE_PAGE))
+            msg_erro = 'Caminho inválido'
+            dados_Enviados = msg_erro.encode(CODE_PAGE)
+            send_all(conexao, bytes([STATUS_ERRO]) + pack_uint32_be(len(dados_Enviados)) + dados_Enviados)
             return
 
         if not os.path.isfile(caminho):
-            print(f'Arquivo não encontrado: {nome_arquivo}')
-            msg = f'ERRO: Arquivo não encontrado.'.encode(CODE_PAGE)
-            send_all(conn, msg)
+            msg_erro = 'Arquivo não encontrado'
+            dados_Enviados = msg_erro.encode(CODE_PAGE)
+            send_all(conexao, bytes([STATUS_NOT_FOUND]) + pack_uint32_be(len(dados_Enviados)) + dados_Enviados)
             return
 
-        # envia OK e depois o conteúdo em blocos, finalizando com b'EOF'
-        print(f'Enviando arquivo: {nome_arquivo}')
-        send_all(conn, b'OK')
-        with open(caminho, 'rb') as f:
-            while True:
-                bloco = f.read(BUFFER_SIZE)
-                if not bloco:
-                    break
-                send_all(conn, bloco)
-        send_all(conn, b'EOF')
-        print(f'Envio concluído: {nome_arquivo}')
-    except Exception as e:
+        tam_Arquivo = os.path.getsize(caminho)
+        # envia header com status OK e tamanho do arquivo, depois o arquivo em si
+        send_all(conexao, bytes([STATUS_OK]) + pack_uint32_be(tam_Arquivo))
+        stream_Arquivo(conexao, caminho)
+        print(f'Envio concluído: {nome_Arq}')
+
+    except Exception as erro:
         try:
-            err = f'ERRO: {e}'.encode(CODE_PAGE)
-            send_all(conn, err)
+            msg_erro = f'ERRO: {erro}'.encode(CODE_PAGE)
+            send_all(conexao, bytes([STATUS_ERRO]) + pack_uint32_be(len(msg_erro)) + msg_erro)
         except Exception:
             pass
     finally:
         try:
-            conn.close()
+            conexao.close()
         except:
             pass
 
 # --- função do cliente: agora com server_host como parâmetro explícito ---
-def request_file(server_host, filename, dest_folder=None):
+def solicitar_Arq(server_host, nome, pasta_Dest=None):
     """
     Conecta ao servidor indicado por server_host e solicita o arquivo.
-    - server_host: IP ou nome do servidor (string)
-    - filename: nome do arquivo pedido (string)
-    - dest_folder: pasta destino local (opcional); se None usa constantes.DIR_IMG_CLIENT
-
-    Retorna True se recebeu com sucesso, False caso contrário.
-    Exemplo de uso:
-        request_file('127.0.0.1', 'arquivo.txt')
+    Agora reaproveita recv_until_eof_and_write para gravar os dados até EOF.
     """
-    if dest_folder is None:
-        dest_folder = DIR_IMG_CLIENT
-    ensure_dir(dest_folder)
-    dest_path = os.path.join(dest_folder, filename)
+    if pasta_Dest is None: pasta_Dest = DIR_IMG_CLIENT
+    dir_existe(pasta_Dest)
+    dest_path = os.path.join(pasta_Dest, nome)
 
-    s = None
+    server = None
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(TIMEOUT_SOCKET)
-        s.connect((server_host, HOST_PORT))
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.settimeout(TIMEOUT_SOCKET)
+        server.connect((server_host, HOST_PORT))
 
         # envia nome do arquivo (bytes)
-        s.send(filename.encode(CODE_PAGE))
+        server.send(nome.encode(CODE_PAGE))
 
-        # lê a primeira resposta
-        primeira = s.recv( len(b'OK') + 10 )  # tenta ler algo razoável
+        # lê a primeira resposta (pode trazer 'OK' seguido de parte dos dados)
+        primeira = server.recv(len(b'OK') + 10)  # tenta ler algo razoável
         if not primeira:
             print('Sem resposta do servidor.')
             return False
 
         if primeira.startswith(b'OK'):
-            # resto dos dados pode vir junto com o 'OK'
-            resto = primeira[2:]
-            # se resto já contém EOF ou dados, escrevemos e chamamos loop para completar
-            with open(dest_path, 'wb') as f:
-                if resto:
-                    # se resto contém EOF
-                    idx = resto.find(b'EOF')
-                    if idx != -1:
-                        # grava até EOF e encerra
-                        if idx > 0:
-                            f.write(resto[:idx])
-                        print(f'Arquivo recebido: {dest_path}')
-                        return True
-                    else:
-                        f.write(resto)
-                # agora continuar recebendo até detectar EOF
-                tail_len = len(b'EOF')
-                tail = b''
-                while True:
-                    bloco = s.recv(BUFFER_SIZE)
-                    if not bloco:
-                        print('Conexão encerrada inesperadamente.')
-                        return False
-                    combined = tail + bloco
-                    idx = combined.find(b'EOF')
-                    if idx != -1:
-                        f.write(combined[:idx])
-                        print(f'Arquivo recebido: {dest_path}')
-                        return True
-                    else:
-                        if len(combined) <= tail_len:
-                            tail = combined
-                            continue
-                        write_part = combined[:-tail_len]
-                        f.write(write_part)
-                        tail = combined[-tail_len:]
+            resto = primeira[2:]  # pode estar vazio, ou conter dados até EOF
+            # usa a função reutilizável para gravar (passando o resto inicial)
+            ok = recv_until_eof_and_write(server, dest_path, inicial=resto)
+            if ok:
+                print(f'Arquivo recebido: {dest_path}')
+                return True
+            else:
+                print('Conexão encerrada inesperadamente.')
+                return False
         else:
             # recebeu mensagem de erro (pode ser 'ERRO: ...')
-            rest = s.recv(BUFFER_SIZE)
+            rest = server.recv(BUFFER_SIZE)
             msg = (primeira + rest).decode(CODE_PAGE, errors='ignore')
             print(msg)
             return False
@@ -208,8 +158,8 @@ def request_file(server_host, filename, dest_folder=None):
         print(f'Erro genérico: {e}')
         return False
     finally:
-        if s:
+        if server:
             try:
-                s.close()
+                server.close()
             except:
                 pass
