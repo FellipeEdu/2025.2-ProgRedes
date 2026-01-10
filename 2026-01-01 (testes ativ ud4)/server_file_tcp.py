@@ -2,13 +2,17 @@ import socket
 from constantes import *
 from funcoes import dir_Existe, unica_Conexao
 
-"""Inicializa o servidor e atende conexões sequencialmente (cada requisição em nova conexão)."""
-server = None
+os.system('cls') if os.name == 'nt' else os.system('clear')
+
+#Inicializa o servidor e atende conexões sequencialmente (cada requisição em nova conexão).
+#sockServer = None
 try:
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sockServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     #server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(('', HOST_PORT))
-    server.listen(5)
+    sockServer.bind(('', HOST_PORT))
+
+    sockServer.settimeout(TIMEOUT_SOCKET)
+
     print('\n' + '-' * 100)
     print('SERVIDOR TCP Inicializado - Aguardando conexões...')
     print('Pressione CTRL+C para encerrar.')
@@ -18,18 +22,23 @@ try:
     dir_Existe(DIR_IMG_SERVER)
 
     while True:
-        conexao, cliente = server.accept()
+        conexao, cliente = sockServer.accept()
         unica_Conexao(conexao, cliente)
+        '''try:
+            conexao, cliente = sockServer.accept()
+            unica_Conexao(conexao, cliente)
+        except socket.timeout:
+            continue'''
 
 except KeyboardInterrupt:
-        print('\nAVISO: encerrando servidor...\n')
+    print('\nAVISO: encerrando servidor...\n')
 except socket.error as erro_Servidor:
-        print(f'\nERRO DE SOCKET: {erro_Servidor}\n')
+    print(f'\nERRO DE SOCKET: {erro_Servidor}\n')
 except Exception as erro:
-        print(f'\nERRO GENÉRICO: {erro}\n')
+    print(f'\nERRO GENÉRICO: {erro}\n')
 finally:
-    if server:
+    if sockServer:
         try:
-            server.close()
+            sockServer.close()
         except:
             pass
