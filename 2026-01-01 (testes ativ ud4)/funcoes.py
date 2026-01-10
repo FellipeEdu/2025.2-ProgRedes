@@ -18,14 +18,16 @@ def safe_join(base, *caminhos):
     return arq_Teste
 
 def send_all(socket, data):
-    total_enviado = 0
-    while total_enviado < len(data):
-        enviado = socket.send(data[total_enviado:])
+    """Envia todos os bytes de data por meio do socket em um loop. Usa sock.send até que todo o conteúdo seja enviado."""
+    total_Enviado = 0
+    while total_Enviado < len(data):
+        enviado = socket.send(data[total_Enviado:])
         if enviado == 0:
             raise RuntimeError("Conexão de socket quebrada durante send")
-        total_enviado += enviado
+        total_Enviado += enviado
 
 def recv_all(socket, n_bytes):
+    """lê exatamente n bytes do socket. Faz recv repetidas vezes até completar n bytes; se o socket fechar antes retorna None."""
     dados = b''
     while len(dados) < n_bytes:
         bloco = socket.recv(n_bytes - len(dados))
@@ -34,10 +36,10 @@ def recv_all(socket, n_bytes):
         dados += bloco
     return dados
 
-def pack_uint32_be(n):
+def int_Bytes_BE(n):
     return int(n).to_bytes(4, byteorder='big', signed=False)
 
-def unpack_uint32_be(b):
+def bytes_Int_BE(b):
     return int.from_bytes(b, byteorder='big', signed=False)
 
 # --- servidor (download simples usando cabeçalho: 1 byte status + 4 bytes tamanho) ---
@@ -64,7 +66,7 @@ def unica_Conexao(conexao, cliente):
         if not bytes_Tam:
             print('Pedido mal formado (sem tamanho).')
             return
-        tam_Nome = unpack_uint32_be(bytes_Tam)
+        tam_Nome = bytes_Int_BE(bytes_Tam)
         bytes_Nome = recv_all(conexao, tam_Nome)
         if bytes_Nome is None:
             print('Pedido mal formado (nome incompleto).')
@@ -77,25 +79,25 @@ def unica_Conexao(conexao, cliente):
         except ValueError:
             msg_erro = 'Caminho inválido'
             dados_Enviados = msg_erro.encode(CODE_PAGE)
-            send_all(conexao, bytes([STATUS_ERRO]) + pack_uint32_be(len(dados_Enviados)) + dados_Enviados)
+            send_all(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
             return
 
         if not os.path.isfile(caminho):
             msg_erro = 'Arquivo não encontrado'
             dados_Enviados = msg_erro.encode(CODE_PAGE)
-            send_all(conexao, bytes([STATUS_NOT_FOUND]) + pack_uint32_be(len(dados_Enviados)) + dados_Enviados)
+            send_all(conexao, bytes([STATUS_NOT_FOUND]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
             return
 
         tam_Arquivo = os.path.getsize(caminho)
         # envia header com status OK e tamanho do arquivo, depois o arquivo em si
-        send_all(conexao, bytes([STATUS_OK]) + pack_uint32_be(tam_Arquivo))
+        send_all(conexao, bytes([STATUS_OK]) + int_Bytes_BE(tam_Arquivo))
         stream_Arquivo(conexao, caminho)
         print(f'Envio concluído: {nome_Arq}')
 
     except Exception as erro:
         try:
             msg_erro = f'ERRO: {erro}'.encode(CODE_PAGE)
-            send_all(conexao, bytes([STATUS_ERRO]) + pack_uint32_be(len(msg_erro)) + msg_erro)
+            send_all(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(msg_erro)) + msg_erro)
         except Exception:
             pass
     finally:
@@ -127,7 +129,7 @@ def solicitar_Arq(server_host, nome, pasta_Dest=None):
 
         # envia nome com 4 bytes de comprimento
         bytes_Nome = nome.encode(CODE_PAGE)
-        send_all(tcp_Socket, pack_uint32_be(len(bytes_Nome)) + bytes_Nome)
+        send_all(tcp_Socket, int_Bytes_BE(len(bytes_Nome)) + bytes_Nome)
 
         # lê 1 byte de status
         bytes_Status = recv_all(tcp_Socket, 1)
@@ -141,7 +143,7 @@ def solicitar_Arq(server_host, nome, pasta_Dest=None):
         if bytes_Tam is None:
             print('Resposta mal formada do servidor.')
             return False
-        tam_Dados = unpack_uint32_be(bytes_Tam)
+        tam_Dados = bytes_Int_BE(bytes_Tam)
 
         # lê payload exatamente payload_size bytes (pode ser grande; lê em loop)
         restante = tam_Dados
