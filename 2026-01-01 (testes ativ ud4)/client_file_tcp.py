@@ -1,6 +1,6 @@
 import socket, os
-from constantes import *
-from funcoes import *
+from constantes import HOST_IP_SERVER, DIR_IMG_CLIENT
+from funcoes import dir_Existe, solicitar_Arq
 
 print('\n' + '-' * 100)
 print('CLIENTE TCP - Enviando pedidos de arquivo...')
@@ -11,7 +11,7 @@ print('-' * 100 + '\n')
 '''server_host = input('IP do servidor (ex: 127.0.0.1): ').strip()
 if not server_host:
     server_host = '127.0.0.1'''
-dir_existe(DIR_IMG_CLIENT)
+dir_Existe(DIR_IMG_CLIENT)
 
 while True:
     nome = input('Digite o arquivo para receber: ').strip()

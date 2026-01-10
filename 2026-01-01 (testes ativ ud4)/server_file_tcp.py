@@ -1,6 +1,6 @@
 import socket
 from constantes import *
-from funcoes import dir_existe, unica_Conexao
+from funcoes import dir_Existe, unica_Conexao
 
 """Inicializa o servidor e atende conexões sequencialmente (cada requisição em nova conexão)."""
 server = None
@@ -15,7 +15,7 @@ try:
     print(f'IP/Porta do Servidor: {("", HOST_PORT)}')
     print('-' * 100 + '\n')
 
-    dir_existe(DIR_IMG_SERVER)
+    dir_Existe(DIR_IMG_SERVER)
 
     while True:
         conexao, cliente = server.accept()
