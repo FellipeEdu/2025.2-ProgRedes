@@ -20,7 +20,7 @@ CODE_PAGE       = 'utf-8'
 BUFFER_SIZE     = 1024
 
 # Timeout do socket em segundos
-TIMEOUT_SOCKET  = 0.5
+TIMEOUT_SOCKET  = 1
 
 # Operações (1 byte)
 OP_DOWNLOAD = 10
