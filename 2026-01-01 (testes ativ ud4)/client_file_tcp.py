@@ -2,6 +2,8 @@ import socket, os
 from constantes import HOST_IP_SERVER, DIR_IMG_CLIENT
 from funcoes import dir_Existe, solicitar_Arq
 
+os.system('cls') if os.name == 'nt' else os.system('clear')
+
 print('\n' + '-' * 100)
 print('CLIENTE TCP - Enviando pedidos de arquivo...')
 print('Digite SAIR para encerrar o cliente.\n')
@@ -14,21 +16,24 @@ if not server_host:
 dir_Existe(DIR_IMG_CLIENT)
 
 while True:
-   print(f"\n{'=' * 10} Menu {'=' * 10}")
+   print(f"{'=' * 10} Menu {'=' * 10}")
    print("1. Solicitar Arquivo")
    print("2. tbd")
    print("3. tbd")
         
    escolha = input("Escolha uma opção: ")
-        
-   if escolha == '1':
-      nome = input('Digite o arquivo para receber: ').strip()
+   
+   # Solicitar arquivo
+   if escolha == '1': 
+      nome = input('\nDigite o arquivo para receber: ').strip()
       if not nome:
          continue
-      if nome.lower() == 'sair':
-         break
+      solicitar_Arq(nome)
+   # Sair
+   elif escolha.lower() == 'sair':
+      break
 
-      solicitar_Arq(HOST_IP_SERVER, nome, DIR_IMG_CLIENT)
+   print(f'\n{'*' * 30}')
 
    '''elif escolha == '2':
       funcoes.obtemRAID()
