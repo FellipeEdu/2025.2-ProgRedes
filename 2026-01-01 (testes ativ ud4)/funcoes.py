@@ -64,12 +64,12 @@ def unica_Conexao(conexao, cliente):
         # recebe 4 bytes com o tamanho do nome
         bytes_Tam = recv_all(conexao, 4)
         if not bytes_Tam:
-            print('Pedido mal formado (sem tamanho).')
+            print('ERRO: Pedido mal formado (sem tamanho).')
             return
         tam_Nome = bytes_Int_BE(bytes_Tam)
         bytes_Nome = recv_all(conexao, tam_Nome)
         if bytes_Nome is None:
-            print('Pedido mal formado (nome incompleto).')
+            print('ERRO: Pedido mal formado (nome incompleto).')
             return
         nome_Arq = bytes_Nome.decode(CODE_PAGE)
         print(f'Requisição de arquivo: {nome_Arq}')
@@ -77,13 +77,13 @@ def unica_Conexao(conexao, cliente):
         try:
             caminho = safe_join(DIR_IMG_SERVER, nome_Arq)
         except ValueError:
-            msg_erro = 'Caminho inválido'
+            msg_erro = 'ERRO: Caminho inválido'
             dados_Enviados = msg_erro.encode(CODE_PAGE)
             send_all(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
             return
 
         if not os.path.isfile(caminho):
-            msg_erro = 'Arquivo não encontrado'
+            msg_erro = 'ERRO: Arquivo não encontrado'
             dados_Enviados = msg_erro.encode(CODE_PAGE)
             send_all(conexao, bytes([STATUS_NOT_FOUND]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
             return
@@ -108,7 +108,7 @@ def unica_Conexao(conexao, cliente):
 
 # --- funções do cliente: agora com server_host como parâmetro explícito ---
 # 10
-def solicitar_Arq(server_host, nome, pasta_Dest=None):
+def solicitar_Arq(nome, server_Host=HOST_IP_SERVER, pasta_Dest=DIR_IMG_CLIENT):
     """
     Conecta ao servidor indicado por server_host e solicita o arquivo.
 
@@ -116,8 +116,7 @@ def solicitar_Arq(server_host, nome, pasta_Dest=None):
     Envia: 4 bytes len(nome) + nome
     Recebe: 1 byte status + 4 bytes tamanho + payload
     """
-    if pasta_Dest is None:
-        pasta_Dest = DIR_IMG_CLIENT
+    #if pasta_Dest is None: pasta_Dest = DIR_IMG_CLIENT
     dir_Existe(pasta_Dest)
     caminho_Dest = os.path.join(pasta_Dest, nome)
 
@@ -125,7 +124,7 @@ def solicitar_Arq(server_host, nome, pasta_Dest=None):
     try:
         tcp_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_Socket.settimeout(TIMEOUT_SOCKET)
-        tcp_Socket.connect((server_host, HOST_PORT))
+        tcp_Socket.connect((server_Host, HOST_PORT))
 
         # envia nome com 4 bytes de comprimento
         bytes_Nome = nome.encode(CODE_PAGE)
@@ -158,7 +157,7 @@ def solicitar_Arq(server_host, nome, pasta_Dest=None):
                         return False
                     arquivo.write(bloco)
                     restante -= len(bloco)
-            print(f'Arquivo recebido: {caminho_Dest}\n{'*' * 30}')
+            print(f'Arquivo recebido: {caminho_Dest}')
             return True
         else:
             # payload é mensagem de erro/descrição — lê tudo (pode ser 0)
