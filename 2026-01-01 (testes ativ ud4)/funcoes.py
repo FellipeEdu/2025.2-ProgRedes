@@ -5,7 +5,7 @@ import json
 from constantes import *
 
 # --- utilitários ---
-def dir_existe(caminho):
+def dir_Existe(caminho):
     if not os.path.exists(caminho):
         os.makedirs(caminho, exist_ok=True)
 
@@ -116,7 +116,7 @@ def solicitar_Arq(server_host, nome, pasta_Dest=None):
     """
     if pasta_Dest is None:
         pasta_Dest = DIR_IMG_CLIENT
-    dir_existe(pasta_Dest)
+    dir_Existe(pasta_Dest)
     caminho_Dest = os.path.join(pasta_Dest, nome)
 
     tcp_Socket = None
@@ -145,7 +145,7 @@ def solicitar_Arq(server_host, nome, pasta_Dest=None):
 
         # lê payload exatamente payload_size bytes (pode ser grande; lê em loop)
         restante = tam_Dados
-        dir_existe(pasta_Dest)
+        dir_Existe(pasta_Dest)
         if status == STATUS_OK:
             with open(caminho_Dest, 'wb') as arquivo:
                 while restante > 0:
