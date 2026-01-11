@@ -11,6 +11,7 @@ try:
     #server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sockServer.bind(('', HOST_PORT))
 
+    #sockServer.listen(5)
     sockServer.settimeout(TIMEOUT_SOCKET)
 
     print('\n' + '-' * 100)
@@ -22,13 +23,11 @@ try:
     dir_Existe(DIR_IMG_SERVER)
 
     while True:
-        conexao, cliente = sockServer.accept()
-        unica_Conexao(conexao, cliente)
-        '''try:
+        try:
             conexao, cliente = sockServer.accept()
             unica_Conexao(conexao, cliente)
         except socket.timeout:
-            continue'''
+            continue
 
 except KeyboardInterrupt:
     print('\nAVISO: encerrando servidor...\n')
@@ -37,8 +36,5 @@ except socket.error as erro_Servidor:
 except Exception as erro:
     print(f'\nERRO GENÉRICO: {erro}\n')
 finally:
-    if sockServer:
-        try:
-            sockServer.close()
-        except:
-            pass
+    sockServer.close()
+    print('Servidor finalizado com Sucesso...\n\n')
