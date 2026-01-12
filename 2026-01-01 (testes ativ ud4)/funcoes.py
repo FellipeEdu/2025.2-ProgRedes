@@ -17,30 +17,30 @@ def safe_join(base, *caminhos):
         raise ValueError("Escape da pasta não permitido")
     return arq_Teste
 
-def send_Tudo(socket, data):
+def send_Tudo(socket, dados):
     """Envia todos os bytes de data por meio do socket em um loop. Usa sock.send até que todo o conteúdo seja enviado."""
     total_Enviado = 0
-    while total_Enviado < len(data):
-        enviado = socket.send(data[total_Enviado:])
+    while total_Enviado < len(dados):
+        enviado = socket.send(dados[total_Enviado:])
         if enviado == 0:
             raise RuntimeError("Conexão de socket quebrada durante send.")
         total_Enviado += enviado
 
-def recv_Tudo(socket, n_bytes):
+def recv_Tudo(socket, n_Bytes):
     """lê exatamente n bytes do socket. Faz recv repetidas vezes até completar n bytes; se o socket fechar antes retorna None."""
     dados = b''
-    while len(dados) < n_bytes:
-        bloco = socket.recv(n_bytes - len(dados))
+    while len(dados) < n_Bytes:
+        bloco = socket.recv(n_Bytes - len(dados))
         if not bloco:
             return None
         dados += bloco
     return dados
 
-def int_Bytes_BE(n):
-    return int(n).to_bytes(4, byteorder='big', signed=False)
+def int_Bytes_BE(int_Valor):
+    return int(int_Valor).to_bytes(4, byteorder='big', signed=False)
 
-def bytes_Int_BE(b):
-    return int.from_bytes(b, byteorder='big', signed=False)
+def bytes_Int_BE(bytes_Valor):
+    return int.from_bytes(bytes_Valor, byteorder='big', signed=False)
 
 # --- servidor (download simples usando cabeçalho: 1 byte status + 4 bytes tamanho) ---
 def stream_Arquivo(socket, caminho_Arq):
@@ -74,16 +74,24 @@ def unica_Conexao(conexao, cliente):
         if not primeiro_byte:
             print('ERRO: Pedido mal formado (sem dados iniciais).')
             return
+        
+        print(f"OP_CODE: {bytes_Int_BE(primeiro_byte)}")
 
         if primeiro_byte[0] == OP_DOWNLOAD:
             # --- operação GET (recebeu o primeiro byte do tamanho do nome) ---
             # precisamos ler os 3 bytes restantes para completar os 4 bytes do tamanho
-            restante_tam = recv_Tudo(conexao, 3)
-            if restante_tam is None:
+            bytes_Tam = recv_Tudo(conexao, 4)
+            if bytes_Tam is None:
                 print('ERRO: Pedido mal formado (tamanho incompleto).')
                 return
-            bytes_Tam = primeiro_byte + restante_tam  # 4 bytes completos
             tam_Nome = bytes_Int_BE(bytes_Tam)
+            '''#debug
+            print(bytes_Tam)
+            print(bytes_Int_BE(bytes_Tam))'''
+            
+            '''#debug
+            print(bytes_Nome)
+            print(bytes_Int_BE(bytes_Nome))'''
             bytes_Nome = recv_Tudo(conexao, tam_Nome)
             if bytes_Nome is None:
                 print('ERRO: Pedido mal formado (nome incompleto).')
@@ -113,26 +121,33 @@ def unica_Conexao(conexao, cliente):
 
         elif primeiro_byte[0] == OP_LIST:
             # --- operação LIST ---
+            print("Requisição de Lista de Arquivos.")
+
             try:
-                entries = []
+                entradas = []
                 for nome in os.listdir(DIR_IMG_SERVER):
                     caminho = os.path.join(DIR_IMG_SERVER, nome)
                     if os.path.isfile(caminho):
-                        tam = os.path.getsize(caminho)
-                        entries.append({'nome': nome, 'tamanho': str(tam)})
-                payload_text = json.dumps(entries)
-                payload = payload_text.encode(CODE_PAGE)
-                send_Tudo(conexao, bytes([STATUS_OK]) + int_Bytes_BE(len(payload)) + payload)
+                        tamanho = os.path.getsize(caminho)
+                        entradas.append({'nome': nome, 'tamanho': str(tamanho)})
+                texto_Dados = json.dumps(entradas)
+                dados_Enviados = texto_Dados.encode(CODE_PAGE)
+                send_Tudo(conexao, bytes([STATUS_OK]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
+
+                print("Envio concluído.")
                 return
-            except Exception as e:
+            except Exception as erro:
                 try:
-                    msg_Erro = f'ERRO: {e}'.encode(CODE_PAGE)
+                    msg_Erro = f'ERRO: {erro}'.encode(CODE_PAGE)
                     send_Tudo(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(msg_Erro)) + msg_Erro)
                 except Exception:
                     pass
                 return
+            
+        elif primeiro_byte[0] == OP_UPLOAD:
+            
 
-        #elif primeiro_byte[0] == OP_UPLOAD:
+        #elif primeiro_byte[0] == OP_RESUME:
 
     except Exception as erro:
         try:
@@ -168,7 +183,7 @@ def solicitar_Arq(nome, server_Host=HOST_IP_SERVER, pasta_Dest=DIR_IMG_CLIENT):
 
         # envia nome com 4 bytes de comprimento
         bytes_Nome = nome.encode(CODE_PAGE)
-        send_Tudo(tcp_Socket, int_Bytes_BE(len(bytes_Nome)) + bytes_Nome)
+        send_Tudo(tcp_Socket, bytes([OP_DOWNLOAD]) + int_Bytes_BE(len(bytes_Nome)) + bytes_Nome)
 
         # lê 1 byte de status
         bytes_Status = recv_Tudo(tcp_Socket, 1)
@@ -228,9 +243,10 @@ def solicitar_Arq(nome, server_Host=HOST_IP_SERVER, pasta_Dest=DIR_IMG_CLIENT):
                 tcp_Socket.close()
             except:
                 pass
-
 # 20
 def listar_Arquivos(server_Host=HOST_IP_SERVER):
+
+
     """
     Solicita a listagem de arquivos ao servidor.
 
@@ -259,14 +275,14 @@ def listar_Arquivos(server_Host=HOST_IP_SERVER):
         # lê 1 byte de status
         bytes_Status = recv_Tudo(tcp_Socket, 1)
         if not bytes_Status:
-            print('Sem resposta do servidor.')
+            print('\nSem resposta do servidor.')
             return None
         status = bytes_Status[0]
 
         # lê 4 bytes com o tamanho do payload
         bytes_Tam = recv_Tudo(tcp_Socket, 4)
         if bytes_Tam is None:
-            print('Resposta malformada do servidor (tamanho ausente).')
+            print('\nResposta malformada do servidor (tamanho ausente).')
             return None
         tam_Dados = bytes_Int_BE(bytes_Tam)
 
@@ -275,7 +291,7 @@ def listar_Arquivos(server_Host=HOST_IP_SERVER):
         if tam_Dados > 0:
             dados_Enviados = recv_Tudo(tcp_Socket, tam_Dados)
             if dados_Enviados is None:
-                print('Conexão encerrada inesperadamente durante o recebimento do payload.')
+                print('\nConexão encerrada inesperadamente durante o recebimento dos dados.')
                 return None
 
         if status == STATUS_OK:
@@ -283,27 +299,28 @@ def listar_Arquivos(server_Host=HOST_IP_SERVER):
             try:
                 texto = dados_Enviados.decode(CODE_PAGE)
                 dados = json.loads(texto)
+                #print(dados)
                 return dados
             except Exception as erro:
-                print(f'Erro ao decodificar JSON da listagem: {erro}')
+                print(f'\nErro ao decodificar JSON da listagem: {erro}')
                 return None
         else:
             # payload é mensagem de erro textual
             try:
                 msg = dados_Enviados.decode(CODE_PAGE, errors='ignore')
-                print(f'Servidor retornou erro na listagem: {msg}')
+                print(f'\nServidor retornou erro na listagem: {msg}')
             except Exception:
-                print('Servidor retornou erro na listagem (mensagem binária).')
+                print('\nServidor retornou erro na listagem (mensagem binária).')
             return None
 
     except socket.timeout:
-        print('Timeout: sem resposta do servidor.')
+        print('\nTimeout: sem resposta do servidor.')
         return None
     except socket.error as erro_Socket:
-        print(f'Erro de socket: {erro_Socket}')
+        print(f'\nErro de socket: {erro_Socket}')
         return None
     except Exception as erro:
-        print(f'Erro genérico: {erro}')
+        print(f'\nErro genérico: {erro}')
         return None
     finally:
         if tcp_Socket:
@@ -311,3 +328,6 @@ def listar_Arquivos(server_Host=HOST_IP_SERVER):
                 tcp_Socket.close()
             except:
                 pass
+# 30
+def upload_Arquivo(nome):
+
