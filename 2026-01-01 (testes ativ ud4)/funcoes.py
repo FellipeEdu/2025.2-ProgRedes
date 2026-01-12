@@ -42,7 +42,7 @@ def int_Bytes_BE(int_Valor):
 def bytes_Int_BE(bytes_Valor):
     return int.from_bytes(bytes_Valor, byteorder='big', signed=False)
 
-# --- servidor (download simples usando cabeçalho: 1 byte status + 4 bytes tamanho) ---
+# --- funções do servidor (usam EOF como delimitador de fim de arquivo) ---
 def stream_Arquivo(socket, caminho_Arq):
     """Envia o conteúdo do arquivo em blocos usando send_all."""
     with open(caminho_Arq, 'rb') as arquivo:
@@ -51,7 +51,6 @@ def stream_Arquivo(socket, caminho_Arq):
             if not bloco: break
             send_Tudo(socket, bloco)
 
-# --- funções do servidor (usam EOF como delimitador de fim de arquivo) ---
 def unica_Conexao(conexao, cliente):
     """
     Lê uma requisição do cliente e responde com:
@@ -82,7 +81,7 @@ def unica_Conexao(conexao, cliente):
             # precisamos ler os 3 bytes restantes para completar os 4 bytes do tamanho
             bytes_Tam = recv_Tudo(conexao, 4)
             if bytes_Tam is None:
-                print('ERRO: Pedido mal formado (tamanho incompleto).')
+                print('ERRO: Pedido mal formado (tamanho incompleto).\n')
                 return
             tam_Nome = bytes_Int_BE(bytes_Tam)
             '''#debug
@@ -94,7 +93,7 @@ def unica_Conexao(conexao, cliente):
             print(bytes_Int_BE(bytes_Nome))'''
             bytes_Nome = recv_Tudo(conexao, tam_Nome)
             if bytes_Nome is None:
-                print('ERRO: Pedido mal formado (nome incompleto).')
+                print('ERRO: Pedido mal formado (nome incompleto).\n')
                 return
             nome_Arq = bytes_Nome.decode(CODE_PAGE)
             print(f'Requisição de arquivo: {nome_Arq}')
@@ -117,7 +116,7 @@ def unica_Conexao(conexao, cliente):
             # envia header com status OK e tamanho do arquivo, depois o arquivo em si
             send_Tudo(conexao, bytes([STATUS_OK]) + int_Bytes_BE(tam_Arquivo))
             stream_Arquivo(conexao, caminho)
-            print(f'Envio concluído: {nome_Arq}')
+            print(f'Envio concluído: {nome_Arq}\n')
 
         elif primeiro_byte[0] == OP_LIST:
             # --- operação LIST ---
@@ -134,7 +133,7 @@ def unica_Conexao(conexao, cliente):
                 dados_Enviados = texto_Dados.encode(CODE_PAGE)
                 send_Tudo(conexao, bytes([STATUS_OK]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
 
-                print("Envio concluído.")
+                print("Envio concluído.\n")
                 return
             except Exception as erro:
                 try:
@@ -144,8 +143,8 @@ def unica_Conexao(conexao, cliente):
                     pass
                 return
             
-        elif primeiro_byte[0] == OP_UPLOAD:
-            
+        #elif primeiro_byte[0] == OP_UPLOAD:
+
 
         #elif primeiro_byte[0] == OP_RESUME:
 
@@ -329,5 +328,5 @@ def listar_Arquivos(server_Host=HOST_IP_SERVER):
             except:
                 pass
 # 30
-def upload_Arquivo(nome):
+#def upload_Arquivo(nome):
 
