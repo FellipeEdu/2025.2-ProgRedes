@@ -1,4 +1,4 @@
-import socket
+import socket, os
 from constantes import *
 from funcoes import dir_Existe, unica_Conexao
 
@@ -8,16 +8,15 @@ os.system('cls') if os.name == 'nt' else os.system('clear')
 #sockServer = None
 try:
     sockServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sockServer.bind(('', HOST_PORT))
 
-    #sockServer.listen(5)
+    sockServer.listen(5)
     sockServer.settimeout(TIMEOUT_SOCKET)
 
     print('\n' + '-' * 100)
     print('SERVIDOR TCP Inicializado - Aguardando conexões...')
     print('Pressione CTRL+C para encerrar.')
-    print(f'IP/Porta do Servidor: {("", HOST_PORT)}')
+    print(f'IP/Porta do Servidor: {(HOST_IP_SERVER, HOST_PORT)}')
     print('-' * 100 + '\n')
 
     dir_Existe(DIR_IMG_SERVER)
@@ -36,5 +35,6 @@ except socket.error as erro_Servidor:
 except Exception as erro:
     print(f'\nERRO GENÉRICO: {erro}\n')
 finally:
-    sockServer.close()
+    if sockServer:
+        sockServer.close()
     print('Servidor finalizado com Sucesso...\n\n')
