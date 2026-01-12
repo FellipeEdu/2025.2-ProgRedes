@@ -77,14 +77,14 @@ def unica_Conexao(conexao, cliente):
         try:
             caminho = safe_join(DIR_IMG_SERVER, nome_Arq)
         except ValueError:
-            msg_erro = 'ERRO: Caminho inválido'
-            dados_Enviados = msg_erro.encode(CODE_PAGE)
+            msg_Erro = 'ERRO: Caminho inválido'
+            dados_Enviados = msg_Erro.encode(CODE_PAGE)
             send_all(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
             return
 
         if not os.path.isfile(caminho):
-            msg_erro = 'ERRO: Arquivo não encontrado'
-            dados_Enviados = msg_erro.encode(CODE_PAGE)
+            msg_Erro = 'ERRO: Arquivo não encontrado'
+            dados_Enviados = msg_Erro.encode(CODE_PAGE)
             send_all(conexao, bytes([STATUS_NOT_FOUND]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
             return
 
@@ -96,8 +96,8 @@ def unica_Conexao(conexao, cliente):
 
     except Exception as erro:
         try:
-            msg_erro = f'ERRO: {erro}'.encode(CODE_PAGE)
-            send_all(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(msg_erro)) + msg_erro)
+            msg_Erro = f'ERRO: {erro}'.encode(CODE_PAGE)
+            send_all(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(msg_Erro)) + msg_Erro)
         except Exception:
             pass
     finally:
@@ -190,3 +190,5 @@ def solicitar_Arq(nome, server_Host=HOST_IP_SERVER, pasta_Dest=DIR_IMG_CLIENT):
                 pass
 
 # 20
+def listar_Arquivos():
+    
