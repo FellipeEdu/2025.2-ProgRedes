@@ -36,11 +36,9 @@ def recv_Tudo(socket, n_Bytes):
         dados += bloco
     return dados
 
-def int_Bytes_BE(int_Valor):
-    return int(int_Valor).to_bytes(4, byteorder='big', signed=False)
+def int_Bytes_BE(int_Valor):    return int(int_Valor).to_bytes(4, byteorder='big', signed=False)
 
-def bytes_Int_BE(bytes_Valor):
-    return int.from_bytes(bytes_Valor, byteorder='big', signed=False)
+def bytes_Int_BE(bytes_Valor):  return int.from_bytes(bytes_Valor, byteorder='big', signed=False)
 
 # --- funções do servidor (usam EOF como delimitador de fim de arquivo) ---
 def stream_Arquivo(socket, caminho_Arq):
@@ -55,15 +53,17 @@ def unica_Conexao(conexao, cliente):
     """
     Lê uma requisição do cliente e responde com:
       - 1 byte status + 4 bytes tamanho + blocos de dados (payload)
-    Suporta duas formas de requisição do cliente:
-      A) GET (request de arquivo): cliente envia 4 bytes (len nome) + nome
-         -> servidor responde com status + tamanho + blocos do arquivo
-      B) LIST (op code 20): cliente envia 1 byte com o código da operação
-         -> servidor responde com status + tamanho + payload (JSON com listagem)
-
-    Observação: usa helpers esperados no escopo:
-      recv_all, send_all, bytes_Int_BE, int_Bytes_BE, safe_join, stream_Arquivo,
-      DIR_IMG_SERVER, CODE_PAGE, STATUS_OK, STATUS_ERRO, STATUS_NOT_FOUND
+    Suporta as operações:
+      - OP_DOWNLOAD (10): cliente envia 1 byte op + 4 bytes len(nome) + nome
+          -> servidor responde com status + 4 bytes tamanho + arquivo
+      - OP_LIST (20): cliente envia 1 byte op
+          -> servidor responde com status + 4 bytes tamanho + payload JSON
+      - OP_UPLOAD (30): cliente envia 1 byte op + 4 bytes len(nome) + nome
+          -> servidor responde com 1 byte (accept: 1 / refuse: 0)
+          se aceito cliente envia 4 bytes tamanho + dados do arquivo
+          -> servidor responde com 1 byte final (success:1 / error:0)
+    Observação: usa helpers no escopo: recv_Tudo, send_Tudo, bytes_Int_BE, int_Bytes_BE, safe_join, stream_Arquivo,
+    DIR_IMG_SERVER, CODE_PAGE, STATUS_OK, STATUS_ERRO, STATUS_NOT_FOUND, OP_DOWNLOAD, OP_LIST, OP_UPLOAD
     """
     try:
         print(f'Conexão de {cliente}')
@@ -71,11 +71,11 @@ def unica_Conexao(conexao, cliente):
         # lê 1 byte inicial (pode ser OP_LIST ou o primeiro byte do tamanho do nome)
         primeiro_byte = recv_Tudo(conexao, 1)
         if not primeiro_byte:
-            print('ERRO: Pedido mal formado (sem dados iniciais).')
+            print('ERRO: Pedido mal formado (sem dados iniciais).\n')
             return
         
         print(f"OP_CODE: {bytes_Int_BE(primeiro_byte)}")
-
+        # 10
         if primeiro_byte[0] == OP_DOWNLOAD:
             # --- operação GET (recebeu o primeiro byte do tamanho do nome) ---
             # precisamos ler os 3 bytes restantes para completar os 4 bytes do tamanho
@@ -117,7 +117,7 @@ def unica_Conexao(conexao, cliente):
             send_Tudo(conexao, bytes([STATUS_OK]) + int_Bytes_BE(tam_Arquivo))
             stream_Arquivo(conexao, caminho)
             print(f'Envio concluído: {nome_Arq}\n')
-
+        # 20
         elif primeiro_byte[0] == OP_LIST:
             # --- operação LIST ---
             print("Requisição de Lista de Arquivos.")
@@ -142,10 +142,145 @@ def unica_Conexao(conexao, cliente):
                 except Exception:
                     pass
                 return
-            
-        #elif primeiro_byte[0] == OP_UPLOAD:
+        # 30    
+        elif primeiro_byte[0] == OP_UPLOAD:
+             # recebe 4 bytes com o tamanho do nome do arquivo
+            bytes_Tam = recv_Tudo(conexao, 4)
+            if bytes_Tam is None:
+                print('ERRO: Pedido de upload mal formado (tamanho ausente).')
+                return
+            tam_Nome = bytes_Int_BE(bytes_Tam)
 
+            # validação básica
+            if tam_Nome <= 0 or tam_Nome > 10000:
+                print(f'ERRO: tam_Nome inválido ({tam_Nome}).')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]))
+                except:
+                    pass
+                return
 
+            bytes_Nome = recv_Tudo(conexao, tam_Nome)
+            if bytes_Nome is None:
+                print('ERRO: Pedido de upload mal formado (nome incompleto).')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]))
+                except:
+                    pass
+                return
+
+            # decodifica e sanitiza nome (remove espaços em volta)
+            nome_Arq = bytes_Nome.decode(CODE_PAGE).strip()
+            print(f'Requisição de upload: {nome_Arq!r}')
+
+            # nome não pode ser vazio
+            if not nome_Arq:
+                print('ERRO: nome de arquivo vazio no pedido de upload.')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]))
+                except:
+                    pass
+                return
+
+            # tenta construir caminho seguro dentro da pasta do servidor
+            try:
+                caminho_dest = safe_join(DIR_IMG_SERVER, nome_Arq)
+            except ValueError:
+                print('ERRO: Upload recusado - caminho inválido/fora da pasta do usuário.')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]))  # recusa
+                except:
+                    pass
+                return
+
+            # responde ACEITO (1)
+            try:
+                send_Tudo(conexao, bytes([STATUS_OK]))
+            except Exception as erro:
+                print(f'ERRO ao enviar aceitação para upload: {erro}')
+                return
+
+            # agora espera 4 bytes com o tamanho do arquivo
+            bytes_Tam = recv_Tudo(conexao, 4)
+            if bytes_Tam is None:
+                print('ERRO: Upload mal formado (tamanho do arquivo ausente).')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]))
+                except:
+                    pass
+                return
+            tam_Arquivo = bytes_Int_BE(bytes_Tam)
+
+            # validação do tamanho (evita alocar/esperar descrepâncias absurdas)
+            tam_Max = 200 * 1024 * 1024  # 200 MB por segurança; ajuste se necessário
+            if tam_Arquivo < 0 or tam_Arquivo > tam_Max:
+                print(f'ERRO: tam_Arquivo inválido/maior que limite ({tam_Arquivo}).')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]))
+                except:
+                    pass
+                return
+
+            # grava o arquivo recebendo exatamente tam_Arquivo bytes
+            try:
+                # garante diretório existente
+                dir_Existe(os.path.dirname(caminho_dest) or DIR_IMG_SERVER)
+                with open(caminho_dest, 'wb') as arquivo:
+                    restante = tam_Arquivo
+                    while restante > 0:
+                        para_Ler = min(BUFFER_SIZE, restante)
+                        bloco = recv_Tudo(conexao, para_Ler)
+                        if bloco is None:
+                            # conexão fechou no meio do upload
+                            print('ERRO: conexão encerrada durante upload.')
+                            try:
+                                arquivo.close()
+                            except:
+                                pass
+                            try:
+                                os.remove(caminho_dest)
+                            except:
+                                pass
+                            try:
+                                send_Tudo(conexao, bytes([STATUS_ERRO]))
+                            except:
+                                pass
+                            return
+                        arquivo.write(bloco)
+                        restante -= len(bloco)
+                # upload concluído com sucesso
+                print(f'Upload concluído: {nome_Arq} ({tam_Arquivo} bytes)\n')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_OK]))
+                except:
+                    pass
+                return
+            except PermissionError as perm_err:
+                print(f'ERRO durante recebimento do upload: Permissão negada ao gravar "{caminho_dest}": {perm_err}')
+                try:
+                    # tenta remover arquivo parcial se existir
+                    if os.path.exists(caminho_dest) and not os.path.isdir(caminho_dest):
+                        os.remove(caminho_dest)
+                except:
+                    pass
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]))
+                except:
+                    pass
+                return
+            except Exception as erro:
+                print(f'ERRO durante recebimento do upload: {erro}')
+                # tentativa de remover arquivo parcial
+                try:
+                    if os.path.exists(caminho_dest) and not os.path.isdir(caminho_dest): os.remove(caminho_dest)
+                except:
+                    pass
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]))
+                except:
+                    pass
+                return
+        # 40
         #elif primeiro_byte[0] == OP_RESUME:
 
     except Exception as erro:
@@ -162,7 +297,7 @@ def unica_Conexao(conexao, cliente):
 
 # --- funções do cliente: agora com server_host como parâmetro explícito ---
 # 10
-def solicitar_Arq(nome, server_Host=HOST_IP_SERVER, pasta_Dest=DIR_IMG_CLIENT):
+def solicitar_Arq(nome):
     """
     Conecta ao servidor indicado por server_host e solicita o arquivo.
 
@@ -171,14 +306,14 @@ def solicitar_Arq(nome, server_Host=HOST_IP_SERVER, pasta_Dest=DIR_IMG_CLIENT):
     Recebe: 1 byte status + 4 bytes tamanho + payload
     """
     #if pasta_Dest is None: pasta_Dest = DIR_IMG_CLIENT
-    dir_Existe(pasta_Dest)
-    caminho_Dest = os.path.join(pasta_Dest, nome)
+    dir_Existe(DIR_IMG_CLIENT)
+    caminho_Dest = os.path.join(DIR_IMG_CLIENT, nome)
 
     tcp_Socket = None
     try:
         tcp_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_Socket.settimeout(TIMEOUT_SOCKET)
-        tcp_Socket.connect((server_Host, HOST_PORT))
+        tcp_Socket.connect((HOST_IP_SERVER, HOST_PORT))
 
         # envia nome com 4 bytes de comprimento
         bytes_Nome = nome.encode(CODE_PAGE)
@@ -200,7 +335,7 @@ def solicitar_Arq(nome, server_Host=HOST_IP_SERVER, pasta_Dest=DIR_IMG_CLIENT):
 
         # lê payload exatamente payload_size bytes (pode ser grande; lê em loop)
         restante = tam_Dados
-        dir_Existe(pasta_Dest)
+        dir_Existe(DIR_IMG_CLIENT)
         if status == STATUS_OK:
             with open(caminho_Dest, 'wb') as arquivo:
                 while restante > 0:
@@ -243,9 +378,7 @@ def solicitar_Arq(nome, server_Host=HOST_IP_SERVER, pasta_Dest=DIR_IMG_CLIENT):
             except:
                 pass
 # 20
-def listar_Arquivos(server_Host=HOST_IP_SERVER):
-
-
+def listar_Arquivos():
     """
     Solicita a listagem de arquivos ao servidor.
 
@@ -265,7 +398,7 @@ def listar_Arquivos(server_Host=HOST_IP_SERVER):
     try:
         tcp_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_Socket.settimeout(TIMEOUT_SOCKET)
-        tcp_Socket.connect((server_Host, HOST_PORT))
+        tcp_Socket.connect((HOST_IP_SERVER, HOST_PORT))
 
         # obtém o código da operação (usa constante se existir, senão 20)
         #OP_LIST = getattr(constantes, 'OP_LIST', 20)
@@ -328,5 +461,104 @@ def listar_Arquivos(server_Host=HOST_IP_SERVER):
             except:
                 pass
 # 30
-#def upload_Arquivo(nome):
+def upload_Arquivo(nome_Arquivo, nome_Dest=None, server_Host=HOST_IP_SERVER):
+    """
+    Envia um arquivo que está na pasta client_files para o servidor via OP_UPLOAD.
 
+    Parâmetros:
+      - nome_arquivo: nome do arquivo existente em DIR_IMG_CLIENT (ex: 'foto.jpg')
+      - server_Host: IP/host do servidor (opcional, default HOST_IP_SERVER)
+      - nome_dest: nome que será usado no servidor (opcional; se None ou '' usa nome_arquivo)
+
+    Retorna True em sucesso, False em erro.
+    """
+    # evita path traversal no lado cliente: usa sempre basename
+    nome_local_seguro = os.path.basename(nome_Arquivo)
+    caminho_local = os.path.join(DIR_IMG_CLIENT, nome_local_seguro)
+
+    if not os.path.isfile(caminho_local):
+        print('\nErro: arquivo local não encontrado em DIR_IMG_CLIENT.')
+        return False
+
+    # se nome_dest for None ou string vazia, usa o próprio nome_local_seguro
+    if not nome_Dest:
+        nome_Dest = nome_local_seguro
+
+    try:
+        bytes_Nome = nome_Dest.encode(CODE_PAGE)
+    except Exception as erro:
+        print(f'\nErro ao codificar nome do arquivo: {erro}')
+        return False
+
+    tam_Arquivo = os.path.getsize(caminho_local)
+
+    # mesma validação do servidor (ajuste se necessário)
+    tam_Max = 200 * 1024 * 1024  # 200 MB
+    if tam_Arquivo < 0 or tam_Arquivo > tam_Max:
+        print(f'\nErro: arquivo muito grande ({tam_Arquivo} bytes). Limite: {tam_Max} bytes.')
+        return False
+
+    tcp_Socket = None
+    try:
+        tcp_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tcp_Socket.settimeout(TIMEOUT_SOCKET)
+        tcp_Socket.connect((server_Host, HOST_PORT))
+
+        # envia: opcode + 4 bytes len(nome) + nome
+        header = bytes([OP_UPLOAD]) + int_Bytes_BE(len(bytes_Nome)) + bytes_Nome
+        send_Tudo(tcp_Socket, header)
+
+        # aguarda 1 byte de aceitação do servidor
+        resposta = recv_Tudo(tcp_Socket, 1)
+        if not resposta:
+            print('\nTimeout: sem resposta do servidor (aceitação do upload).')
+            return False
+        if resposta[0] != STATUS_OK:
+            print('\nServidor recusou o upload.')
+            return False
+
+        # aceito: envia 4 bytes com o tamanho do arquivo e depois os blocos
+        # durante envio, removemos timeout para não interromper o envio por engano
+        tcp_Socket.settimeout(None)
+        send_Tudo(tcp_Socket, int_Bytes_BE(tam_Arquivo))
+
+        with open(caminho_local, 'rb') as arquivo:
+            restante = tam_Arquivo
+            while restante > 0:
+                bloco = arquivo.read(BUFFER_SIZE)
+                if not bloco:
+                    break
+                send_Tudo(tcp_Socket, bloco)
+                restante -= len(bloco)
+
+        # volta a usar timeout para aguardar o status final
+        tcp_Socket.settimeout(TIMEOUT_SOCKET)
+        final = recv_Tudo(tcp_Socket, 1)
+        if not final:
+            print('\nTimeout: sem resposta final do servidor após upload.')
+            return False
+        if final[0] == STATUS_OK:
+            print(f'\nUpload concluído com sucesso: {nome_Dest} ({tam_Arquivo} bytes)')
+            return True
+        else:
+            print('\nServidor reportou erro ao processar o upload.')
+            return False
+
+    except socket.timeout:
+        print('\nTimeout: sem resposta do servidor.')
+        return False
+    except FileNotFoundError:
+        print('\nErro: arquivo local não encontrado (FileNotFoundError).')
+        return False
+    except socket.error as socket_Erro:
+        print(f'\nErro de socket: {socket_Erro}')
+        return False
+    except Exception as erro:
+        print(f'\nErro genérico: {erro}')
+        return False
+    finally:
+        if tcp_Socket:
+            try:
+                tcp_Socket.close()
+            except:
+                pass

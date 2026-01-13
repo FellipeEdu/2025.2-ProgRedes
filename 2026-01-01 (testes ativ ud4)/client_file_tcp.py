@@ -1,6 +1,6 @@
 import socket, os
 from constantes import DIR_IMG_CLIENT
-from funcoes import dir_Existe, solicitar_Arq, listar_Arquivos
+from funcoes import dir_Existe, solicitar_Arq, listar_Arquivos, upload_Arquivo
 
 os.system('cls') if os.name == 'nt' else os.system('clear')
 
@@ -19,7 +19,7 @@ while True:
    print(f"{'=' * 10} Menu {'=' * 10}")
    print("1. Solicitar Arquivo")
    print("2. Listar Arquivos")
-   print("3. tbd")
+   print("3. Fazer Upload de Arquivo")
         
    escolha = input("Escolha uma opção: ")
    
@@ -44,8 +44,20 @@ while True:
                tamanho = item.get('tamanho',)
                print(f'{num:2d}. {nome} ({tamanho} bytes)')
    # Upload de arquivos
-   # elif  escolha == '3':
+   elif escolha == '3':
+      nome_Atual_Arq = input("Nome do arquivo que deseja enviar: ").strip()
+      nome_Novo_Arq = input("Nome do arquivo no servidor (deixar em branco para mesmo nome): ").strip()
 
+      if not nome_Atual_Arq:
+         print('Nome inválido. Tente novamente.')
+         continue
+
+      if nome_Novo_Arq:
+         upload_Arquivo(nome_Atual_Arq, nome_Dest=nome_Novo_Arq)
+      else:
+         upload_Arquivo(nome_Atual_Arq)
+   # Download Parcial
+   #elif escolha == '4':
    # Sair
    elif escolha.lower() == 'sair':
       break
