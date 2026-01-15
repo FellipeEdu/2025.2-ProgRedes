@@ -1,7 +1,7 @@
 import os
-import sys
 import socket
 import json
+import hashlib
 from constantes import *
 
 # --- utilitários ---
@@ -39,6 +39,25 @@ def recv_Tudo(socket, n_Bytes):
 def int_Bytes_BE(int_Valor):    return int(int_Valor).to_bytes(4, byteorder='big', signed=False)
 
 def bytes_Int_BE(bytes_Valor):  return int.from_bytes(bytes_Valor, byteorder='big', signed=False)
+
+def prefixo_MD5(caminho_Arq, length):
+    """
+    Retorna o digest MD5 (16 bytes) dos primeiros `length` bytes do arquivo.
+    Se length == 0 retorna o MD5 do prefixo vazio (sem ler o arquivo).
+    """
+    if length == 0:
+        return hashlib.md5(b'').digest()
+    md5 = hashlib.md5()
+    lido = 0
+    with open(caminho_Arq, 'rb') as arquivo:
+        while lido < length:
+            para_Ler = min(BUFFER_SIZE, length - lido)
+            bloco = arquivo.read(para_Ler)
+            if not bloco:
+                break
+            md5.update(bloco)
+            lido += len(bloco)
+    return md5.digest()
 
 # --- funções do servidor (usam EOF como delimitador de fim de arquivo) ---
 def stream_Arquivo(socket, caminho_Arq):
@@ -226,9 +245,9 @@ def unica_Conexao(conexao, cliente):
                 # garante diretório existente
                 dir_Existe(os.path.dirname(caminho_dest) or DIR_IMG_SERVER)
                 with open(caminho_dest, 'wb') as arquivo:
-                    restante = tam_Arquivo
-                    while restante > 0:
-                        para_Ler = min(BUFFER_SIZE, restante)
+                    indice = tam_Arquivo
+                    while indice > 0:
+                        para_Ler = min(BUFFER_SIZE, indice)
                         bloco = recv_Tudo(conexao, para_Ler)
                         if bloco is None:
                             # conexão fechou no meio do upload
@@ -247,7 +266,7 @@ def unica_Conexao(conexao, cliente):
                                 pass
                             return
                         arquivo.write(bloco)
-                        restante -= len(bloco)
+                        indice -= len(bloco)
                 # upload concluído com sucesso
                 print(f'Upload concluído: {nome_Arq} ({tam_Arquivo} bytes)\n')
                 try:
@@ -281,7 +300,133 @@ def unica_Conexao(conexao, cliente):
                     pass
                 return
         # 40
-        #elif primeiro_byte[0] == OP_RESUME:
+        elif primeiro_byte[0] == OP_RESUME:
+             # recebe 4 bytes com o tamanho do nome do arquivo
+            bytes_Tam = recv_Tudo(conexao, 4)
+            if bytes_Tam is None:
+                print('ERRO: Pedido parcial mal formado (tamanho ausente).\n')
+                return
+            tam_Nome = bytes_Int_BE(bytes_Tam)
+
+            if tam_Nome <= 0 or tam_Nome > 10000:
+                print(f'ERRO: tam_Nome inválido ({tam_Nome}).\n')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(0))
+                except:
+                    pass
+                return
+
+            bytes_Nome = recv_Tudo(conexao, tam_Nome)
+            if bytes_Nome is None:
+                print('ERRO: Pedido parcial mal formado (nome incompleto).\n')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(0))
+                except:
+                    pass
+                return
+
+            nome_Arq = bytes_Nome.decode(CODE_PAGE).strip()
+            print(f'Requisição parcial: {nome_Arq}\n')
+
+            # lê 4 bytes com a posição inicial (uint32 BE)
+            bytes_Posicao = recv_Tudo(conexao, 4)
+            if bytes_Posicao is None:
+                print('ERRO: Pedido parcial mal formado (posição ausente).\n')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(0))
+                except:
+                    pass
+                return
+            pos_Inicial = bytes_Int_BE(bytes_Posicao)
+
+            # lê 16 bytes com o MD5 (digest raw)
+            md5_Recebido = recv_Tudo(conexao, 16)
+            if md5_Recebido is None:
+                print('ERRO: Pedido parcial mal formado (MD5 ausente).\n')
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(0))
+                except:
+                    pass
+                return
+
+            # valida caminho seguro
+            try:
+                caminho = safe_join(DIR_IMG_SERVER, nome_Arq)
+            except ValueError:
+                msg = 'ERRO: Caminho inválido'
+                dados_Enviados = msg.encode(CODE_PAGE)
+                try:
+                    send_Tudo(conexao, bytes([STATUS_NOT_FOUND]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
+                except:
+                    pass
+                return
+
+            if not os.path.isfile(caminho):
+                msg = 'ERRO: Arquivo não encontrado'
+                dados_Enviados = msg.encode(CODE_PAGE)
+                try:
+                    send_Tudo(conexao, bytes([STATUS_NOT_FOUND]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
+                except:
+                    pass
+                return
+
+            tam_Arquivo = os.path.getsize(caminho)
+
+            # valida posição
+            if pos_Inicial > tam_Arquivo:
+                msg = 'ERRO: Posição inicial maior que tamanho do arquivo\n'
+                dados_Enviados = msg.encode(CODE_PAGE)
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
+                except:
+                    pass
+                return
+
+            ''# calcula MD5 do prefixo no servidor e compara (otimizado para pos_inicial == 0)
+            try:
+                server_MD5 = prefixo_MD5(caminho, pos_Inicial)
+            except Exception as erro:
+                msg = f'ERRO: falha ao calcular MD5: {erro}'
+                dados_Enviados = msg.encode(CODE_PAGE)
+                try:
+                    send_Tudo(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
+                except:
+                    pass
+                return''
+
+            if server_MD5 != md5_Recebido:
+                msg = 'ERRO: MD5 inválido (parte local difere do servidor)'
+                dados_Enviados = msg.encode(CODE_PAGE)
+                try:
+                    send_Tudo(conexao, bytes([STATUS_HASH_INVALIDO]) + int_Bytes_BE(len(dados_Enviados)) + dados_Enviados)
+                except:
+                    pass
+                return
+
+            # MD5 ok -> envia status OK + 4 bytes com o tamanho restante, depois os dados a partir da posição
+            restante = tam_Arquivo - pos_Inicial
+            try:
+                send_Tudo(conexao, bytes([STATUS_OK]) + int_Bytes_BE(restante))
+                with open(caminho, 'rb') as arquivo:           
+                    arquivo.seek(pos_Inicial)
+                    indice = restante
+                    while indice > 0:
+                        bloco = arquivo.read(min(BUFFER_SIZE, indice))
+                        if not bloco:
+                            break
+                        send_Tudo(conexao, bloco)
+                        indice -= len(bloco)
+
+                print(f'Parcial enviado: {nome_Arq} (a partir de {pos_Inicial}) ; {restante} bytes\n')
+
+            except Exception as erro:
+                print(f'ERRO durante envio parcial: {erro}\n')
+                try:
+                    msg = f'ERRO: {erro}'.encode(CODE_PAGE)
+                    send_Tudo(conexao, bytes([STATUS_ERRO]) + int_Bytes_BE(len(msg)) + msg)
+                except:
+                    pass
+            return
 
     except Exception as erro:
         try:
@@ -461,7 +606,7 @@ def listar_Arquivos():
             except:
                 pass
 # 30
-def upload_Arquivo(nome_Arquivo, nome_Dest=None, server_Host=HOST_IP_SERVER):
+def upload_Arquivo(nome_Arquivo, nome_Dest=None):
     """
     Envia um arquivo que está na pasta client_files para o servidor via OP_UPLOAD.
 
@@ -502,7 +647,7 @@ def upload_Arquivo(nome_Arquivo, nome_Dest=None, server_Host=HOST_IP_SERVER):
     try:
         tcp_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_Socket.settimeout(TIMEOUT_SOCKET)
-        tcp_Socket.connect((server_Host, HOST_PORT))
+        tcp_Socket.connect((HOST_IP_SERVER, HOST_PORT))
 
         # envia: opcode + 4 bytes len(nome) + nome
         header = bytes([OP_UPLOAD]) + int_Bytes_BE(len(bytes_Nome)) + bytes_Nome
@@ -555,6 +700,146 @@ def upload_Arquivo(nome_Arquivo, nome_Dest=None, server_Host=HOST_IP_SERVER):
         return False
     except Exception as erro:
         print(f'\nErro genérico: {erro}')
+        return False
+    finally:
+        if tcp_Socket:
+            try:
+                tcp_Socket.close()
+            except:
+                pass
+# 40
+def solicitar_Parcial(nome_Arquivo=None, posicao_Inicial=None):
+    """
+    Solicita o download parcial (a partir de pos_inicial) do arquivo no servidor.
+
+    - Se pos_inicial for None e já existir arquivo local em dest_folder, usa o tamanho atual
+      do arquivo local como pos_inicial e envia o MD5 do prefixo local.
+    - Se pos_inicial for informado, o cliente calcula o MD5 dos primeiros pos_inicial bytes
+      do arquivo local (deve existir), e solicita ao servidor os bytes a partir de pos_inicial.
+
+    Protocolo cliente -> servidor:
+      1 byte OP_RESUME (40)
+      4 bytes len(nome) + nome
+      4 bytes pos_inicial (uint32 BE)
+      16 bytes md5 (raw digest)
+
+    Resposta servidor -> cliente:
+      1 byte status
+      4 bytes tamanho (remaining size or error message length)
+      payload
+    """
+    if not nome_Arquivo:
+        print('Nome do arquivo obrigatório.')
+        return False
+
+    nome_Seguro = os.path.basename(nome_Arquivo)
+    dir_Existe(DIR_IMG_CLIENT)
+    caminho_Dest = os.path.join(DIR_IMG_CLIENT, nome_Seguro)
+
+    # se pos_inicial não informado, usar tamanho local (se existir), caso contrário assume 0
+    if posicao_Inicial is None:
+        if os.path.exists(caminho_Dest):
+            posicao_Inicial = os.path.getsize(caminho_Dest)
+        else:
+            posicao_Inicial = 0
+
+    # precisa ter o prefixo local para calcular MD5 (se pos_inicial > 0)
+    if posicao_Inicial > 0:
+        if not os.path.exists(caminho_Dest) or os.path.getsize(caminho_Dest) < posicao_Inicial:
+            print(os.path.getsize(caminho_Dest))
+            print('Erro: arquivo local não possui os bytes necessários para calcular MD5 do prefixo.\n')
+            return False
+        try:
+            md5_local = hashlib.md5()
+            lido = 0
+            with open(caminho_Dest, 'rb') as arquivo:
+                while lido < posicao_Inicial:
+                    to_read = min(BUFFER_SIZE, posicao_Inicial - lido)
+                    bloco = arquivo.read(to_read)
+                    if not bloco:
+                        break
+                    md5_local.update(bloco)
+                    lido += len(bloco)
+            md5_digest = md5_local.digest()
+        except Exception as erro:
+            print(f'Erro ao calcular MD5 local: {erro}')
+            return False
+    else:
+        md5_digest = hashlib.md5(b'').digest()  # MD5 do prefixo vazio
+
+    tcp_Socket = None
+    try:
+        tcp_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tcp_Socket.settimeout(TIMEOUT_SOCKET)
+        tcp_Socket.connect((HOST_IP_SERVER, HOST_PORT))
+
+        bytes_Nome = nome_Seguro.encode(CODE_PAGE)
+        header = bytes([OP_RESUME]) + int_Bytes_BE(len(bytes_Nome)) + bytes_Nome + int_Bytes_BE(posicao_Inicial) + md5_digest
+        send_Tudo(tcp_Socket, header)
+
+        # lê status
+        status_Bytes = recv_Tudo(tcp_Socket, 1)
+        if not status_Bytes:
+            print('Sem resposta do servidor.\n')
+            return False
+        status = status_Bytes[0]
+
+        # lê 4 bytes tamanho
+        size_b = recv_Tudo(tcp_Socket, 4)
+        if size_b is None:
+            print('Resposta malformada do servidor.\n')
+            return False
+        tamanho_Dados = bytes_Int_BE(size_b)
+
+        if status != STATUS_OK:
+            # payload é mensagem de erro textual (pode ser 0)
+            msg = b''
+            if tamanho_Dados > 0:
+                msg = recv_Tudo(tcp_Socket, tamanho_Dados) or b''
+            try:
+                print(msg.decode(CODE_PAGE, errors='ignore'))
+            except:
+                print('Erro do servidor (mensagem binária).\n')
+            return False
+
+        # status OK: payload_size = remaining bytes; lê e anexa ao arquivo local
+        bytes_Restantes = tamanho_Dados
+        # abre arquivo para escrita/append
+        if posicao_Inicial == 0:
+            arquivo = open(caminho_Dest, 'wb')
+        else:
+            # se arquivo não existir cria novo; se existir abre para leitura/escrita
+            if not os.path.exists(caminho_Dest):
+                arquivo = open(caminho_Dest, 'wb')
+            else:
+                arquivo = open(caminho_Dest, 'r+b')
+        try:
+            arquivo.seek(posicao_Inicial)
+            while bytes_Restantes > 0:
+                to_read = min(BUFFER_SIZE, bytes_Restantes)
+                bloco = recv_Tudo(tcp_Socket, to_read)
+                if bloco is None:
+                    print('Conexão encerrada inesperadamente.\n')
+                    arquivo.close()
+                    return False
+                arquivo.write(bloco)
+                bytes_Restantes -= len(bloco)
+            arquivo.close()
+            print(f'\nDownload parcial concluído: {caminho_Dest}')
+            return True
+        except Exception as erro:
+            try:
+                arquivo.close()
+            except:
+                pass
+            print(f'Erro ao escrever arquivo: {erro}\n')
+            return False
+
+    except socket.timeout:
+        print('Timeout: sem resposta do servidor.')
+        return False
+    except Exception as erro:
+        print(f'Erro: {erro}')
         return False
     finally:
         if tcp_Socket:

@@ -1,6 +1,6 @@
 import socket, os
 from constantes import DIR_IMG_CLIENT
-from funcoes import dir_Existe, solicitar_Arq, listar_Arquivos, upload_Arquivo
+from funcoes import dir_Existe, solicitar_Arq, listar_Arquivos, upload_Arquivo, solicitar_Parcial
 
 os.system('cls') if os.name == 'nt' else os.system('clear')
 
@@ -17,15 +17,17 @@ dir_Existe(DIR_IMG_CLIENT)
 
 while True:
    print(f"{'=' * 10} Menu {'=' * 10}")
-   print("1. Solicitar Arquivo")
+   print("1. Download de Arquivo")
    print("2. Listar Arquivos")
    print("3. Fazer Upload de Arquivo")
+   print("4. Download Parcial de Arquivo")
+   #print("4. Download Parcial de Arquivo")
         
    escolha = input("Escolha uma opção: ")
    
    # Solicitar arquivo
    if escolha == '1': 
-      nome = input('\nDigite o arquivo para receber: ').strip()
+      nome = input('Nome do arquivo a receber: ').strip()
       if not nome:
          continue
       solicitar_Arq(nome)
@@ -57,7 +59,28 @@ while True:
       else:
          upload_Arquivo(nome_Atual_Arq)
    # Download Parcial
-   #elif escolha == '4':
+   elif escolha == '4':
+      nome_parcial = input('\nNome do arquivo: ').strip()
+      if not nome_parcial:
+         continue
+      pos_text = input('Posição inicial em bytes (deixar em branco = tamanho atual do arquivo): ').strip()
+      if pos_text == '':
+         posicao = None
+      else:
+         try:
+             posicao = int(pos_text)
+             if posicao < 0:
+                 print('Posição deve ser >= 0.\n')
+                 continue
+         except ValueError:
+             print('Posição inválida. Informe um número inteiro.\n')
+             continue
+
+      success = solicitar_Parcial(nome_parcial, posicao_Inicial=posicao)
+      if not success:
+         print('Falha no download parcial.\n')
+   # n sei
+   # elif escolha == '5':
    # Sair
    elif escolha.lower() == 'sair':
       break
