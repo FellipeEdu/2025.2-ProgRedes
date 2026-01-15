@@ -736,7 +736,7 @@ def solicitar_Parcial(nome_Arquivo=None, posicao_Inicial=None):
     dir_Existe(DIR_IMG_CLIENT)
     caminho_Dest = os.path.join(DIR_IMG_CLIENT, nome_Seguro)
 
-    # se pos_inicial não informado, usar tamanho local (se existir), caso contrário assume 0
+    # se pos_inicial não informado, usa tamanho local (se existir), caso contrário assume 0
     if posicao_Inicial is None:
         if os.path.exists(caminho_Dest):
             posicao_Inicial = os.path.getsize(caminho_Dest)
