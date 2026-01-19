@@ -427,6 +427,38 @@ def unica_Conexao(conexao, cliente):
                 except:
                     pass
             return
+        # 50 - OPERAÇÃO DE MÁSCARA (FILTRO MANUAL)
+        elif primeiro_byte[0] == OP_MASK:
+            # Recebe tamanho e a string da máscara
+            bytes_tam = recv_Tudo(conexao, 4)
+            if not bytes_tam: return
+            tam_Mascara = bytes_Int_BE(bytes_tam)
+            
+            bytes_mascara = recv_Tudo(conexao, tam_Mascara)
+            if bytes_mascara is None: return
+            mascara = bytes_mascara.decode(CODE_PAGE).strip()
+            
+            print(f"Conexão de {cliente}\nMáscara:{mascara}")
+            
+            # LISTAGEM E FILTRAGEM MANUAL 
+            todos = [f for f in os.listdir(DIR_IMG_SERVER) if os.path.isfile(os.path.join(DIR_IMG_SERVER, f))]
+            filtrados = []
+            
+            # Lógica simples de wildcard: *.jpg ou foto*
+            if mascara.startswith('*'):
+                sufixo = mascara.replace('*', '')
+                filtrados = [f for f in todos if f.lower().endswith(sufixo.lower())]
+            elif mascara.endswith('*'):
+                prefixo = mascara.replace('*', '')
+                filtrados = [f for f in todos if f.lower().startswith(prefixo.lower())]
+            else:
+                # Se não tiver *, procura se o texto está contido no nome
+                filtrados = [f for f in todos if mascara.lower() in f.lower()]
+            
+            # Envia tamanho do JSON + JSON
+            json_dados = json.dumps(filtrados).encode(CODE_PAGE)
+            send_Tudo(conexao, int_Bytes_BE(len(json_dados)) + json_dados)
+            print(f"Filtro concluído. Enviados {len(filtrados)} nomes.\n")
 
     except Exception as erro:
         try:
@@ -736,7 +768,7 @@ def solicitar_Parcial(nome_Arquivo=None, posicao_Inicial=None):
     dir_Existe(DIR_IMG_CLIENT)
     caminho_Dest = os.path.join(DIR_IMG_CLIENT, nome_Seguro)
 
-    # se pos_inicial não informado, usar tamanho local (se existir), caso contrário assume 0
+    # se pos_inicial não informado, usa tamanho local (se existir), caso contrário assume 0
     if posicao_Inicial is None:
         if os.path.exists(caminho_Dest):
             posicao_Inicial = os.path.getsize(caminho_Dest)
@@ -847,3 +879,53 @@ def solicitar_Parcial(nome_Arquivo=None, posicao_Inicial=None):
                 tcp_Socket.close()
             except:
                 pass
+# 50
+def solicitar_Mascara(mascara):
+    dir_Existe(DIR_IMG_CLIENT)
+    
+    tcp_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_Socket.settimeout(TIMEOUT_SOCKET)
+    
+    try:
+        tcp_Socket.connect((HOST_IP_SERVER, HOST_PORT))
+        
+        # 1. Enviar Protocolo: OP (1b) + TamMask (4b) + Mascara
+        bytes_mascara = mascara.encode(CODE_PAGE)
+        header = bytes([OP_MASK]) + int_Bytes_BE(len(bytes_mascara)) + bytes_mascara
+        send_Tudo(tcp_Socket, header)
+        
+        # 2. Receber tamanho do JSON de resposta (4 bytes)
+        bytes_Tam = recv_Tudo(tcp_Socket, 4)
+        if bytes_Tam is None:
+            print("Servidor não respondeu.")
+            return False
+            
+        tam_lista = bytes_Int_BE(bytes_Tam)
+        
+        # 3. Receber os dados do JSON
+        dados_lista = recv_Tudo(tcp_Socket, tam_lista)
+        if dados_lista is None:
+            print("Erro ao receber a lista de ficheiros.")
+            return False
+
+        # Decodificar e transformar em lista Python
+        lista_Arq = json.loads(dados_lista.decode(CODE_PAGE))
+        
+        if not lista_Arq:
+            print(f"\nNenhum ficheiro encontrado para: {mascara}")
+            return False
+            
+        print(f"\nEncontrados {len(lista_Arq)} ficheiros. A descarregar...")
+        
+        # 4. Aproveita a função de download que já tens pronta!
+        for nome_Arq in lista_Arq:
+            print(f"-> A pedir: {nome_Arq}")
+            solicitar_Arq(nome_Arq) # Chama a OP_DOWNLOAD para cada um
+            
+        return True
+
+    except Exception as e:
+        print(f"Erro na operação de máscara: {e}")
+        return False
+    finally:
+        tcp_Socket.close()

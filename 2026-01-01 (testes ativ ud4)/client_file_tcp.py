@@ -1,6 +1,6 @@
 import socket, os
 from constantes import DIR_IMG_CLIENT
-from funcoes import dir_Existe, solicitar_Arq, listar_Arquivos, upload_Arquivo, solicitar_Parcial
+from funcoes import dir_Existe, solicitar_Arq, listar_Arquivos, upload_Arquivo, solicitar_Parcial, solicitar_Mascara
 
 os.system('cls') if os.name == 'nt' else os.system('clear')
 
@@ -21,7 +21,7 @@ while True:
    print("2. Listar Arquivos")
    print("3. Fazer Upload de Arquivo")
    print("4. Download Parcial de Arquivo")
-   #print("4. Download Parcial de Arquivo")
+   print("5. Download de Arquivos por Máscara")
         
    escolha = input("Escolha uma opção: ")
    
@@ -79,8 +79,11 @@ while True:
       success = solicitar_Parcial(nome_parcial, posicao_Inicial=posicao)
       if not success:
          print('Falha no download parcial.\n')
-   # n sei
-   # elif escolha == '5':
+   # Mascara
+   elif escolha == '5':
+      mascara = input("\nDigite a máscara (ex: *.jpg): ").strip()
+      if mascara:
+         solicitar_Mascara(mascara)
    # Sair
    elif escolha.lower() == 'sair':
       break
