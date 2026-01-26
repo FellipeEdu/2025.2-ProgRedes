@@ -20,20 +20,25 @@ sockTCP.listen(5)
 
 print('\nRecebendo Mensagens...\n\n')
 
-while True:
-    # Aceitando uma conexão de cliente
-    connConexao, tuplaCliente = sockTCP.accept()
-    
-    # Exibindo a tupla (IP, PORTA) do cliente conectado
-    print(f'Conexão estabelecida com {tuplaCliente}')
+try:
+    while True:
+        # Aceitando uma conexão de cliente
+        connConexao, tuplaCliente = sockTCP.accept()
+        
+        # Exibindo a tupla (IP, PORTA) do cliente conectado
+        print(f'Conexão estabelecida com {tuplaCliente}')
 
-    # Recebendo dados do cliente
-    byteMensagem = connConexao.recv(BUFFER_SIZE)
+        # Recebendo dados do cliente
+        byteMensagem = connConexao.recv(BUFFER_SIZE)
 
-    # Imprimindo a mensagem recebida convertendo de bytes para string
-    print(f'{tuplaCliente}: {byteMensagem.decode(CODE_PAGE)}')
+        # Imprimindo a mensagem recebida convertendo de bytes para string
+        print(f'{tuplaCliente}: {byteMensagem.decode(CODE_PAGE)}')
 
-# Fechando o socket
-    sockTCP.close()
+    # Fechando o socket
+        sockTCP.close()
 
-print('\nAVISO: Servidor finalizado...')
+except KeyboardInterrupt:
+    print('\n\nAVISO: Interrupção detectada (CTRL + C). Encerrando servidor...')
+
+finally:
+    print('\nAVISO: Servidor finalizado...')
