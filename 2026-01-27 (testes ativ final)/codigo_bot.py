@@ -48,7 +48,10 @@ try:
 
          # Verifica se o resultado está vazio -> Retorna ao início do loop
          if jsonRetorno["result"] == []: continue
-
+         #
+         #TESTE
+         print(jsonRetorno)
+         #
          # Processando cada atualização recebida
          lstFilaAtualizacoes = list()
          for atualizacao in jsonRetorno["result"]:
@@ -60,7 +63,7 @@ try:
             if 'message' not in atualizacao: continue
 
             # Obtendo os dados da última atualização
-            intIDUltimaAtualizacao = jsonRetorno["result"][-1]["update_id"]
+            int_ID_Ultima_Atualizacao = jsonRetorno["result"][-1]["update_id"]
             strMensagem            = jsonRetorno["result"][-1]["message"]["text"]
             intIDChat              = jsonRetorno["result"][-1]["message"]["chat"]["id"]
 
