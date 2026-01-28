@@ -68,6 +68,7 @@ try:
             print(f'Mensagem recebida {intIDUltimaAtualizacao} do chat {intIDChat}: {strMensagem}')
 
          # Processando a fila de atualizações -> Enviando respostas
+         # USO DAS FUNCOES
          for (intIDChat, strMensagem, intIDUltimaAtualizacao) in lstFilaAtualizacoes:
             if strMensagem == '/start':
                strMensagemDevolvida = startBot()
