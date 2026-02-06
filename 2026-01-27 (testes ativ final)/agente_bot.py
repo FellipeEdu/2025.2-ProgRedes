@@ -1,11 +1,6 @@
-import socket
-import struct
-import json
+import socket, struct, json, os, platform
 import psutil
-import os
-import platform
 
-# Limpando a tela conforme o estilo do professor
 os.system('cls' if platform.system() == 'Windows' else 'clear')
 
 print('\nAGENTE DE MONITORAMENTO - Iniciando...')
@@ -32,13 +27,13 @@ try:
     while True:
         try:
             # Recebe o comando (Mínimo 1 byte para a letra)
-            binDadosRecebidos = objSocket.recv(1024)
+            bytesDadosRecebidos = objSocket.recv(1024)
             
-            if not binDadosRecebidos:
+            if not bytesDadosRecebidos:
                 print('Conexão encerrada pelo Gerente.')
                 break
 
-            strComando = binDadosRecebidos[0:1].decode('utf-8')
+            strComando = bytesDadosRecebidos[0:1].decode('utf-8')
             dictResposta = {}
 
             # Processando os comandos baseados na tabela
@@ -53,21 +48,21 @@ try:
 
             elif strComando == 'G': # Geral (Processos)
                 lstProcessos = []
-                for p in psutil.process_iter(['pid', 'name']):
-                    lstProcessos.append(p.info)
+                for processo in psutil.process_iter(['pid', 'name']):
+                    lstProcessos.append(processo.info)
                 dictResposta = lstProcessos
 
             elif strComando == 'P': # Processo Específico
-                intPID = struct.unpack('>I', binDadosRecebidos[1:5])[0]
+                intPID = struct.unpack('>I', bytesDadosRecebidos[1:5])[0]
                 try:
-                    p = psutil.Process(intPID)
+                    processo = psutil.Process(intPID)
                     dictResposta = {
                         "ok": True,
-                        "pid": p.pid,
-                        "nome": p.name(),
-                        "path": p.exe(),
-                        "mem": round(p.memory_info().rss / (1024**2), 2),
-                        "cpu": p.cpu_percent(interval=0.1)
+                        "pid": processo.pid,
+                        "nome": processo.name(),
+                        "path": processo.exe(),
+                        "mem": round(processo.memory_info().rss / (1024**2), 2),
+                        "cpu": processo.cpu_percent(interval=0.1)
                     }
                 except psutil.NoSuchProcess:
                     dictResposta = {"ok": False}
@@ -75,13 +70,13 @@ try:
             # --- PREPARANDO A RESPOSTA ---
             # Converte para JSON e gera os bytes
             strJSON     = json.dumps(dictResposta)
-            binPayload  = strJSON.encode('utf-8')
+            bytesPayload  = strJSON.encode('utf-8')
             
             # Cabeçalho com o tamanho em Big Endian (4 bytes)
-            binTamanho  = struct.pack('>I', len(binPayload))
+            binTamanho  = struct.pack('>I', len(bytesPayload))
 
             # Envia o pacote completo (Tamanho + JSON)
-            objSocket.sendall(binTamanho + binPayload)
+            objSocket.sendall(binTamanho + bytesPayload)
             print(f'Comando [{strComando}] processado e enviado.')
 
         except struct.error:
