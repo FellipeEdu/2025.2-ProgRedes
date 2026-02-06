@@ -1,44 +1,9 @@
-import os, sys, requests, platform, json, socket, threading, struct
+import os, sys, requests, platform, json, threading
 from token_bot import *
+from funcoes_bot import *
 
 # Dicionário global para monitorar agentes { "IP": objeto_socket }
 dictAgentes = {}
-
-# --- FUNÇÃO PARA COMUNICAÇÃO COM O AGENTE (PROTOCOL RAIZ) ---
-def requisitar_agente(objSocketAgente, strComando, intPID=None):
-    try:
-        # Envio: Letra do comando (e PID se for o caso)
-        if strComando == 'P' and intPID is not None:
-            bytesPacote = strComando.encode('utf-8') + struct.pack('>I', intPID)
-            objSocketAgente.sendall(bytesPacote)
-        else:
-            objSocketAgente.sendall(strComando.encode('utf-8'))
-
-        # Recebimento Etapa 1: Tamanho (4 bytes Big Endian)
-        bytesTamanho = objSocketAgente.recv(4)
-        if not bytesTamanho: return None
-        intTamanho = struct.unpack('>I', bytesTamanho)[0]
-
-        # Recebimento Etapa 2: JSON (Leitura em chunks/pedaços)
-        bytesPayload = b''
-        while len(bytesPayload) < intTamanho:
-            bytesPayload += objSocketAgente.recv(min(intTamanho - len(bytesPayload), 4096))
-        
-        return json.loads(bytesPayload.decode('utf-8'))
-    except:
-        return None
-
-# --- THREAD: AGUARDAR CONEXÃO DE NOVOS AGENTES ---
-def thread_aguardar_agentes():
-    objSocketServidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    objSocketServidor.bind(('0.0.0.0', 45678))
-    objSocketServidor.listen(10)
-    
-    while True:
-        objSocketAgente, addr = objSocketServidor.accept()
-        strIPAgente = addr[0]
-        dictAgentes[strIPAgente] = objSocketAgente
-        print(f"\n[NOVO AGENTE] Online: {strIPAgente}")
 
 # --- CONFIGURAÇÃO INICIAL DO TELEGRAM ---
 strURLBase = f'https://api.telegram.org/bot{API_TOKEN}'
@@ -49,7 +14,7 @@ os.system('cls' if platform.system() == 'Windows' else 'clear')
 print('GERENTE - Aguardando comandos e agentes...')
 
 # Inicia a thread de escuta dos agentes (Daemon para fechar junto com o script)
-threading.Thread(target=thread_aguardar_agentes, daemon=True).start()
+threading.Thread(target=thread_aguardar_agentes(dictAgentes), daemon=True).start()
 
 intIDUltimaAtualizacao = 0
 
@@ -79,7 +44,10 @@ try:
                 strResposta = "Comando inválido ou incompleto."
 
                 # LÓGICA DOS COMANDOS
-                if strComando == "/agentes":
+                if strComando == "/start":
+                    strResposta = startBot()
+
+                elif strComando == "/agentes":
                     strResposta = "Agentes conectados:\n" + ("\n".join(dictAgentes.keys()) if dictAgentes else "Nenhum")
 
                 elif strComando in ["/hardw", "/procs", "/topcpu", "/topmem"]:
