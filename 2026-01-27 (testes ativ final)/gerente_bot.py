@@ -48,7 +48,7 @@ try:
                     strResposta = startBot()
 
                 elif strComando == "/agentes":
-                    strResposta = "Agentes conectados:\n" + ("\n".join(dictAgentes.keys()) if dictAgentes else "Nenhum")
+                    strResposta = mostrarAgentes(dictAgentes)
 
                 elif strComando in ["/hardw", "/procs", "/topcpu", "/topmem"]:
                     if len(lstPartes) > 1:
