@@ -1,7 +1,15 @@
-import socket, struct, json, os, platform
+import socket, struct, json, os, platform, threading
 import psutil
+from funcoes_bot import *
 
 os.system('cls' if platform.system() == 'Windows' else 'clear')
+
+# 1. Cria a lista vazia que vai guardar os dados
+lstMeuHistorico = []
+
+# 2. Inicia a thread passando a lista como argumento
+# Usamos daemon=True para que ela feche se você fechar o Agente
+threading.Thread(target=thread_coletar_cpu, args=(lstMeuHistorico,), daemon=True).start()
 
 print('\nAGENTE DE MONITORAMENTO - Iniciando...')
 print('Pressione Ctrl+C para encerrar o Agente')
@@ -37,35 +45,23 @@ try:
             dictResposta = {}
 
             # Processando os comandos baseados na tabela
-            if strComando == 'H': # Hardware
-                dictResposta = {
-                    "cpu_cores": psutil.cpu_count(),
-                    "mem_total": round(psutil.virtual_memory().total / (1024**2), 2),
-                    "so": platform.system(),
-                    "arch": platform.machine(),
-                    "node": platform.node()
-                }
-
-            elif strComando == 'G': # Geral (Processos)
-                lstProcessos = []
-                for processo in psutil.process_iter(['pid', 'name']):
-                    lstProcessos.append(processo.info)
-                dictResposta = lstProcessos
+            if strComando == 'G': # Geral (Processos)
+                dictResposta = comando_procs() 
 
             elif strComando == 'P': # Processo Específico
-                intPID = struct.unpack('>I', bytesDadosRecebidos[1:5])[0]
-                try:
-                    processo = psutil.Process(intPID)
-                    dictResposta = {
-                        "ok": True,
-                        "pid": processo.pid,
-                        "nome": processo.name(),
-                        "path": processo.exe(),
-                        "mem": round(processo.memory_info().rss / (1024**2), 2),
-                        "cpu": processo.cpu_percent(interval=0.1)
-                    }
-                except psutil.NoSuchProcess:
-                    dictResposta = {"ok": False}
+                dictResposta = comando_proc(bytesDadosRecebidos)
+
+            elif strComando == 'H': # Hardware
+                dictResposta = {    
+                    "so": platform.system(),
+                    "arch": platform.machine(),
+                    "cpu_cores": psutil.cpu_count(),
+                    "mem_total": round(psutil.virtual_memory().total / (1024**2), 2),
+                    "nome_pc": platform.node()
+                }
+
+            elif strComando == 'T':
+                dictResposta = {"historico": lstMeuHistorico}
 
             # --- PREPARANDO A RESPOSTA ---
             # Converte para JSON e gera os bytes
