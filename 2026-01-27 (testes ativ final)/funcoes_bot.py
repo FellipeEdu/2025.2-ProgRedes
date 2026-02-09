@@ -1,7 +1,7 @@
 import struct, socket, json, time
 import psutil
 
-# --- FUNÇÕES DE COMUNICAÇÃO (MOVIDAS PARA CÁ) ---
+# --- FUNÇÕES DE COMUNICAÇÃO ---
 
 def requisitar_agente(objSocketAgente, strComando, intPID=None):
     """Gerencia a conversa via socket com o Agente."""
@@ -50,6 +50,22 @@ def startBot() -> str:
         "/? → Exibe mensagem de ajuda."
         )
 
+def ajudaBot() -> str:
+   """
+      Retorna instruções de uso do bot.
+   """
+   return (
+      "COMANDOS DISPONÍVEIS:\n"
+      "/agentes → Retorna os agentes conectados.\n"
+      "/procs → Retorna 10 processos em execução no dispositivo.\n"
+      "/proc → Retorna dados de um processo específico.\n"
+      "/topcpu → Retorna os 5 processos que mais estão consumindo CPU.\n"
+      "/topmem → Retorna os 5 processos que mais estão consumindo memória RAM.\n"
+      "/hardw → Retorna dados do hardware do dispositivo.\n"
+      "/histcpu → Retorna os últimos 10 processos que mais consumiram CPU.\n"
+      "/? → Exibe esta mensagem de ajuda."
+    )
+
 def mostrarAgentes(dictAgentes) -> str:
     """
     Retorna os agentes conectados.
@@ -78,7 +94,7 @@ def formatar_processos(dados, ip):
     return strSaida
 
 # /proc: P
-def comando_proc(dados: bytes):
+def comando_proc(dados):
     intPID = struct.unpack('>I', dados[1:5])[0]
     try:
         processo = psutil.Process(intPID)
@@ -98,52 +114,104 @@ def formatar_proc(dados: dict, pid):
     return (
         f"Detalhes PID {pid}:\n"
         f"```• Nome: {dados.get('nome')}\n"
+        f"• Path: {dados.get('path')}\n"
         f"• Uso de RAM: {dados.get('mem')} MB\n"
         f"• Uso de CPU: {dados.get('cpu')} %```\n"
     )
 
 # /topcpu: C
-
 # /topmem: M
+def comando_topcpu():
+    lstProcessos = []
+    for processo in psutil.process_iter(['pid', 'name', 'cpu_percent']):
+        try:
+            lstProcessos.append(processo.info)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    # Ordena do maior para o menor e pega os 5 primeiros
+    return sorted(lstProcessos, key=lambda x: x['cpu_percent'], reverse=True)[:5]
+def comando_topmem():
+    lstProcessos = []
+    for processo in psutil.process_iter(['pid', 'name', 'memory_info']):
+        try:
+            # Pegamos o RSS e convertemos para MB logo aqui
+            p_info = processo.info
+            p_info['mem_mb'] = round(processo.info['memory_info'].rss / (1024**2), 2)
+            lstProcessos.append(p_info)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    # Ordena pelo campo mem_mb que criamos
+    return sorted(lstProcessos, key=lambda x: x['mem_mb'], reverse=True)[:5]
+# ----------------------------------------------------------------------
+def formatar_top_processos(dados, ip, titulo):
+    """Formata a lista de processos em uma tabela Markdown."""
+    strSaida = f"**{titulo} - {ip}**\n"
+    strSaida += "```\n"
+    strSaida += f"{'PID':<7} | {'NOME':<15}\n"
+    strSaida += "-" * 30 + "\n"
+    
+    for processo in dados:
+        # Verifica se o dado é de CPU ou Memória para exibir a unidade certa
+        valor = f"{processo['cpu_percent']}%" if 'cpu_percent' in processo else f"{processo['mem_mb']}MB"
+        strSaida += f"{processo['pid']:<7} | {processo['name'][:15]:<15}\n"
+    
+    strSaida += "```"
+    return strSaida
 
 # /hardw: H
 def formatar_hardware(dados, ip):
     return (
-        f"```**Hardware: {ip}**\n\n"
-        f"• **Nome PC: ** {dados.get('nome_pc')}\n"
-        f"• **SO:** {dados.get('so')}\n"
-        f"• **Arquitetura:** {dados.get('arch')}\n"
-        f"• **CPUs:** {dados.get('cpu_cores')} cores\n"
-        f"• **RAM Total:** {dados.get('mem_total')} MB```"
+        f"```Hardware: {ip}\n\n"
+        f"• Nome PC: {dados.get('nome_pc')}\n"
+        f"• SO: {dados.get('so')}\n"
+        f"• Arquitetura: {dados.get('arch')}\n"
+        f"• CPUs: {dados.get('cpu_cores')} cores\n"
+        f"• RAM Total: {dados.get('mem_total')} MB```"
     )
 # /histcpu: T
-def formatar_historico(dados, ip):
-    lstHist = dados.get("historico", [])
-    if not lstHist: return "Histórico vazio ou indisponível."
-    
-    strSaida = f"**Histórico de CPU (60s) - {ip}**\n\n"
-    for i, valor in enumerate(lstHist):
-        intSegundos = i * 5
-        intBarras = int(valor / 10)
-        strBarra = "■" * intBarras + "□" * (10 - intBarras)
-        strSaida += f"`{intSegundos:02d}s | {strBarra} {valor:>5.1f}%` \n"
-    return strSaida
-
-# --- FUNÇÃO DE COLETA (PARA O AGENTE) ---
 def thread_coletar_cpu(lstHistorico):
     """
     Função que será executada em background pelo Agente.
     Ela alimenta a lista de histórico a cada 5 segundos.
     """
     while True:
-        # Pega o uso de CPU (interval=1 significa que ele mede o uso durante 1 seg)
+        # Pega o uso global de CPU
         floatUso = psutil.cpu_percent(interval=1)
-        lstHistorico.append(floatUso)
         
-        # Mantém apenas as últimas 12 coletas (60 segundos)
+        # Busca o processo com maior consumo no momento
+        strTopProc = "Sistema"
+        floatMax = -1.0
+        
+        for proc in psutil.process_iter(['name', 'cpu_percent']):
+            try:
+                # O psutil já terá o cálculo do intervalo de 1s acima
+                if proc.info['cpu_percent'] > floatMax:
+                    floatMax = proc.info['cpu_percent']
+                    strTopProc = proc.info['name']
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        # Agora guardamos um dicionário com os dois dados
+        lstHistorico.append({"cpu": floatUso, "proc": strTopProc})
+        
         if len(lstHistorico) > 12:
             lstHistorico.pop(0)
             
-        # Como o interval do cpu_percent já levou 1s, esperamos mais 4s
         time.sleep(4)
+def formatar_historico(dados, ip):
+    lstHist = dados.get("historico", [])
+    if not lstHist: return "Histórico vazio ou indisponível."
+    
+    strSaida = f"Histórico de CPU (60s) - {ip}**\n\n"
+    strSaida += "```\n"
+    strSaida += f"{'TEMPO':<7} | {'NOME':<20} | {'VALOR'}\n"
+    for i, valor in enumerate(lstHist):
+        intSegundos = i * 5
 
+        strTempo = f"{intSegundos}s"
+        floatCPU = valor.get("cpu", 0.0)
+        strProc  = valor.get("proc", "N/A")
+
+        strSaida += f"{strTempo:<7} | {strProc:20} | {floatCPU:>5.1f}%\n"
+    strSaida += "```"
+    return strSaida

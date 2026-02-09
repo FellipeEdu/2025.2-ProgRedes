@@ -4,12 +4,11 @@ from funcoes_bot import *
 
 os.system('cls' if platform.system() == 'Windows' else 'clear')
 
-# 1. Cria a lista vazia que vai guardar os dados
-lstMeuHistorico = []
+# Cria a lista vazia que vai guardar os dados do historico
+lstHistorico = []
 
 # 2. Inicia a thread passando a lista como argumento
-# Usamos daemon=True para que ela feche se você fechar o Agente
-threading.Thread(target=thread_coletar_cpu, args=(lstMeuHistorico,), daemon=True).start()
+threading.Thread(target=thread_coletar_cpu, args=(lstHistorico,), daemon=True).start()
 
 print('\nAGENTE DE MONITORAMENTO - Iniciando...')
 print('Pressione Ctrl+C para encerrar o Agente')
@@ -51,6 +50,12 @@ try:
             elif strComando == 'P': # Processo Específico
                 dictResposta = comando_proc(bytesDadosRecebidos)
 
+            elif strComando == 'C': # Top CPU
+                dictResposta = comando_topcpu() 
+
+            elif strComando == 'M': # Top Memória
+                dictResposta = comando_topmem()   
+
             elif strComando == 'H': # Hardware
                 dictResposta = {    
                     "so": platform.system(),
@@ -59,9 +64,9 @@ try:
                     "mem_total": round(psutil.virtual_memory().total / (1024**2), 2),
                     "nome_pc": platform.node()
                 }
-
-            elif strComando == 'T':
-                dictResposta = {"historico": lstMeuHistorico}
+            # função fica rodando fora do while True
+            elif strComando == 'T': # Histórico
+                dictResposta = {"historico": lstHistorico}
 
             # --- PREPARANDO A RESPOSTA ---
             # Converte para JSON e gera os bytes
